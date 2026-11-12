@@ -10,10 +10,11 @@
 - [x] Scorer (`model.py`): small set-transformer, scalar score per token
 - [x] Training loop (`train.py`): pairwise BCE, multinomial rollouts, wandb, checkpoints, periodic synthetic eval vs random
 - [x] Tabular benchmark loader + HPO loop (`bench.py`, `evaluate.py`)
-- [~] FT-PFN + MFPI-random baseline (running, CPU), random search baseline (done)
+- [~] FT-PFN + MFPI-random baseline: TaskSet + PD1 done, LCBench running; random search done for all three
 - [x] PD1 tabular processing (`scripts/process_pd1.py`, 28 ifBO task variants)
 - [x] LCBench (35 tasks, first 1000 configs)
-- [ ] First training run, then compare against FT-PFN on TaskSet (+ PD1)
+- [~] First training runs + comparison: PD1 on par with FT-PFN, TaskSet behind (README, Results)
+- [ ] Find the TaskSet gap: label_past ablation, horizon anneal on wide, curve normalisation on log-loss curves
 
 ## Open design questions (from PLAN.md)
 - Shop density and size `n`: start with uniform; then try mutation of top runs + uniform; TPE; Langevin on the scorer's own gradient (v2)

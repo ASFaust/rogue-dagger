@@ -121,3 +121,26 @@ ifBO uses. `--shop-mode mixed` turns half the shop slots into mutations of the
 top runs, snapped to the nearest unseen config.
 
 See [BACKLOG.md](BACKLOG.md) for what is done and what is open.
+
+## Results so far (2026-11-12, work in progress)
+
+Protocol from the ifBO paper: 1000 steps per task, 10 seeds, the first config
+random. Regret is normalised by the table's best and worst value (stricter than
+the paper's normalisation across algorithms). Numbers are mean final regret,
+lower is better. The ± range is a 95% bootstrap CI over tasks, for the paired
+gain against FT-PFN.
+
+| Method | TaskSet (24) | PD1 (28) |
+|---|---|---|
+| FT-PFN + MFPI-random (ifBO) | **0.053** | 0.0151 |
+| Random search | 0.340 | 0.0496 |
+| R&D `wide-v1` @55k, shop 32, τ=1 | 0.142 (1/24 wins; −0.089 [−0.120, −0.062]) | 0.0241 |
+| R&D `wide-v1` @55k, full table, τ=0.25 | 0.170 | **0.0113** (14/28 wins; +0.004 [−0.006, +0.013]) |
+
+* PD1: on par with FT-PFN when the shop is the full table. TaskSet: still clearly behind.
+* Deployment knobs (TaskSet, early `wide-v1` snapshot): sampling beats greedy by about 3× in regret
+  (0.13 vs 0.43–0.47). The best temperature depends on shop size: τ=1 for 32 items, τ≈0.25 for the full table.
+* Both policies spend 26–30% of their steps on runs whose best point is already in the
+  past, which matters on TaskSet's overfitting curves. Ablation `wide_future.yaml`
+  (`label_past: false`) is training.
+* Run counts aren't the gap: FT-PFN starts 41–293 runs on PD1, we start a similar number.
