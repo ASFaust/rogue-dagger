@@ -36,7 +36,7 @@ DEFAULTS = {
     "train": {
         "n_envs": 256, "iters": 100_000, "lr": 3e-4, "wd": 0.01, "warmup": 1000,
         "grad_clip": 1.0, "temperature": 1.0, "h_start": 1.0, "h_end": 1.0,
-        "amp": True, "log_every": 50, "ckpt_every": 5000, "eval_every": 5000,
+        "amp": True, "label_past": True, "log_every": 50, "ckpt_every": 5000, "eval_every": 5000,
     },
     "eval": {"n_envs": 128, "seed": 1234, "T": 50, "B": 1000, "n": 32, "cap": True,
              "temperature": 1.0},
@@ -180,7 +180,7 @@ def main():
         tok, pad = encode(obs, env.d_max)
         ch = env.choosable()
         valid = torch.cat([ch[:, :r_cur], ch[:, env.R:]], 1)
-        vals = env.values(H)
+        vals = env.values(H, include_past=tc["label_past"])
         vals = torch.cat([vals[:, :r_cur], vals[:, env.R:]], 1)
         with torch.autocast("cuda", dtype=torch.bfloat16, enabled=tc["amp"]):
             s = model(tok, pad)

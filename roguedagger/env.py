@@ -230,13 +230,32 @@ class ShopEnv:
         f = f_start + (f_end - f_start) * prog
         return (f * rem.float()).round().long().clamp(min=1)
 
-    def values(self, H):
-        """Label values [E, R + N]: min loss over points [0, len + H), cut at the cap."""
+    def values(self, H, include_past: bool = True):
+        """Label values [E, R + N]: min loss over points [0, len + H), cut at the cap.
+
+        include_past=False (ablation) uses only the future window [len, len + H) for runs,
+        i.e. what the next H steps on that run can still reach."""
+        if not include_past:
+            return self._future_values(H)
         lim_run = self.run_len + H[:, None]
         lim_shop = H[:, None].expand(-1, self.N)
         cap_lim = torch.where(self.cap, self.T, torch.full_like(self.T, self.L))
         lim_run = torch.minimum(lim_run, cap_lim[:, None]).clamp(1, self.L)
         lim_shop = torch.minimum(lim_shop, cap_lim[:, None]).clamp(1, self.L)
         vr = self.run_cmin.gather(2, (lim_run - 1)[..., None])[..., 0]
+        vs = self.shop_cmin.gather(2, (lim_shop - 1)[..., None])[..., 0]
+        return torch.cat([vr, vs], 1)
+
+    def _future_values(self, H):
+        cap_lim = torch.where(self.cap, self.T, torch.full_like(self.T, self.L))
+        r = int(self.n_runs.max())
+        lo = self.run_len[:, :r]
+        hi = torch.minimum(lo + H[:, None], cap_lim[:, None]).clamp(max=self.L)
+        pos = torch.arange(self.L, device=self.dev)
+        win = (pos[None, None] >= lo[..., None]) & (pos[None, None] < hi[..., None])
+        vr = torch.full((self.E, self.R), 1.0, device=self.dev)
+        vr[:, :r] = torch.where(win, self.run_curve[:, :r], torch.full_like(self.run_curve[:, :r], 2.0)).min(2).values
+        vr = vr.clamp(max=1.0)   # empty window (finished run): never choosable anyway
+        lim_shop = torch.minimum(H, cap_lim).clamp(1, self.L)[:, None].expand(-1, self.N)
         vs = self.shop_cmin.gather(2, (lim_shop - 1)[..., None])[..., 0]
         return torch.cat([vr, vs], 1)

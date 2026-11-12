@@ -80,3 +80,18 @@ def test_tabular_shop_only_unseen():
             shop = env.shop_ids[e][env.shop_valid()[e]].tolist()
             assert not started & set(shop)
     assert (env.run_len <= 4).all()
+
+
+def test_future_only_values():
+    env = ShopEnv(4, EnvConfig(B_range=(20, 80), T_range=(5, 10), p_cap=0.5), DEV, seed=5)
+    for _ in range(12):
+        env.step(torch.multinomial(env.choosable().float(), 1)[:, 0])
+    H = env.horizon()
+    v = env.values(H, include_past=False)
+    for e in range(env.E):
+        lim = int(env.T[e]) if bool(env.cap[e]) else env.L
+        for r in range(int(env.n_runs[e])):
+            lo = int(env.run_len[e, r])
+            hi = min(lo + int(H[e]), lim)
+            if hi > lo:
+                assert torch.isclose(v[e, r], env.run_curve[e, r, lo:hi].min())
