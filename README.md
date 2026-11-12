@@ -143,9 +143,10 @@ FT-PFN with a 95% bootstrap CI over tasks (positive = better than FT-PFN).
 
 * With the full table as its shop (ifBO's setting): significantly better than FT-PFN on PD1,
   on par on TaskSet, and still behind on LCBench (0.016–0.022 vs 0.008).
-* **Caveat:** the deploy temperature was swept on the evaluation benchmarks themselves, so the τ=0.15/0.1
-  rows are optimistic. The best τ differs by family (lower helps TaskSet and PD1, hurts LCBench). τ should be
-  fixed on held-out data or the synthetic prior before claiming a win.
+* **Choosing τ fairly:** the τ=0.15/0.1 rows were swept on the benchmarks themselves and are optimistic
+  (lower τ helps TaskSet and PD1, hurts LCBench). On held-out synthetic tasks (`scripts/synth_tau.py`, seed 777,
+  T ∈ {20, 50, 200}, budget 1000) the best τ for a 512-item shop is 0.15–0.25 and for a 32-item shop 0.25–0.5.
+  τ=0.25 is therefore the fair headline setting: **PD1 better than FT-PFN, TaskSet on par, LCBench behind.**
 * Horizon anneal (`wide-hanneal-v1`) is within noise of the full horizon on all three families.
 * Going from 55k to 100k training steps cut TaskSet regret from 0.170 to 0.062, so the policy was undertrained.
 * Deployment knobs (TaskSet, early `wide-v1` snapshot): sampling beats greedy by about 3× in regret
