@@ -12,6 +12,7 @@
 - [x] Tabular benchmark loader + HPO loop (`bench.py`, `evaluate.py`)
 - [~] FT-PFN + MFPI-random baseline (running, CPU), random search baseline (done)
 - [x] PD1 tabular processing (`scripts/process_pd1.py`, 28 ifBO task variants)
+- [x] LCBench (35 tasks, first 1000 configs)
 - [ ] First training run, then compare against FT-PFN on TaskSet (+ PD1)
 
 ## Open design questions (from PLAN.md)
@@ -25,6 +26,5 @@
 
 ## Later
 - Categorical hyperparameters (one-hot) — the eval benchmarks are all numeric, so prior + tokens are numeric-only for now
-- LCBench: needs a manual `data_2k.zip` download (figshare 403s automated clients)
 - Real-world harness: only the active run on the GPU; freeze = move state to RAM/disk, thaw = load back
 - Wall-clock step unit for deployment

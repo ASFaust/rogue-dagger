@@ -12,8 +12,6 @@ work unchanged:
 from __future__ import annotations
 
 import glob
-import json
-import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -82,21 +80,13 @@ def load_pd1(root=DATA / "pd1", names=IFBO_PD1):
     return tasks
 
 
-def load_lcbench(root=DATA / "lcbench"):
-    """LCBench data_2k: 35 tasks x 2000 configs x 52 epochs; we use val accuracy -> error, epoch 0 dropped."""
-    zp = Path(root) / "data_2k.zip"
-    if not zp.exists() or zp.stat().st_size < 1e6:
-        return []
-    with zipfile.ZipFile(zp) as zf:
-        name = [n for n in zf.namelist() if n.endswith(".json")][0]
-        data = json.loads(zf.read(name))
+def load_lcbench(root=DATA / "lcbench", n_configs=1000):
+    """LCBench (scripts/process_lcbench.py): 35 tasks, first 1000 configs (as in the ifBO paper), val error."""
     tasks = []
-    for ds, cfgs in sorted(data.items()):
-        keys = sorted(cfgs, key=int)
-        hp_names = [k for k in cfgs[keys[0]]["config"] if isinstance(cfgs[keys[0]]["config"][k], (int, float))]
-        X = np.array([[float(cfgs[k]["config"][h]) for h in hp_names] for k in keys])
-        Y = 1 - np.array([cfgs[k]["log"]["Train/val_accuracy"] for k in keys])[:, 1:] / 100.0
-        tasks.append(Task(ds, "lcbench", _drop_constant(normalise_hps(X)), Y.clip(0, 1).astype(np.float32)))
+    for f in sorted(glob.glob(str(Path(root) / "*.npz"))):
+        z = np.load(f)
+        X, Y = z["hps"][:n_configs], z["valid"][:n_configs]
+        tasks.append(Task(Path(f).stem, "lcbench", _drop_constant(normalise_hps(X)), Y.clip(0, 1).astype(np.float32)))
     return tasks
 
 

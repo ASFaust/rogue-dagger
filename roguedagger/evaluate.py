@@ -64,7 +64,8 @@ def ifbo_step(env: TabEnv, rng: np.random.Generator):
             L = int(lens[k])
             t = torch.arange(1, L + 1, dtype=torch.float32) / T
             hp = env.run_x[e, k, :d].expand(L, d)
-            xs.append(torch.cat([torch.full((L, 1), k + 1.0), t[:, None], hp], 1))
+            # curve id = table index + 1, as in ifBO's experiment code (unique per config, <= 1000)
+            xs.append(torch.cat([torch.full((L, 1), float(env.run_cfg[e, k]) + 1), t[:, None], hp], 1))
             ys.append(1.0 - env.run_curve[e, k, :L])
         x_train, y_train = torch.cat(xs), torch.cat(ys).clamp(0, 1)
         h = int(rng.integers(1, T + 1))
@@ -72,9 +73,9 @@ def ifbo_step(env: TabEnv, rng: np.random.Generator):
         thr = f_best + 10 ** rng.uniform(-4, -1) * (1 - f_best)
         run_ok = ch[e, :nr].nonzero()[:, 0]
         shop_ok = ch[e, env.R:].nonzero()[:, 0]
-        q_run = torch.cat([(run_ok + 1).float()[:, None],
+        q_run = torch.cat([(env.run_cfg[e, run_ok] + 1).float()[:, None],
                            ((lens[run_ok] + h).clamp(max=T).float() / T)[:, None], env.run_x[e, run_ok, :d]], 1)
-        q_shop = torch.cat([torch.full((len(shop_ok), 1), float(nr + 1)),
+        q_shop = torch.cat([(env.shop_ids[e, shop_ok] + 1).float()[:, None],
                             torch.full((len(shop_ok), 1), min(h, T) / T), env.shop_x[e, shop_ok, :d]], 1)
         x_test = torch.cat([q_run, q_shop])
         logits = m(x_train=x_train, y_train=y_train, x_test=x_test)
@@ -92,7 +93,7 @@ def run_ifbo_job(args):
     rng = np.random.default_rng(seed)
     while not env.done.all():
         env.step(ifbo_step(env, rng))
-    return task.name, seed, env.normalised_regret()[0].numpy(), time.time() - t0
+    return task.name, seed, env.normalised_regret()[0].numpy(), time.time() - t0, int(env.n_runs[0])
 
 
 # ---------------------------------------------------------------------------- main
@@ -124,14 +125,16 @@ def main():
     tag = args.tag or args.method
     regret = np.zeros((len(tasks), args.seeds, args.budget), dtype=np.float32)
     wall = np.zeros(len(tasks))
+    n_runs = np.zeros((len(tasks), args.seeds))
 
     if args.method == "ifbo":
         import multiprocessing as mp
         jobs = [(t, s, args.budget) for t in tasks for s in range(args.seeds)]
         name_idx = {t.name: i for i, t in enumerate(tasks)}
         with mp.get_context("fork").Pool(args.workers) as pool:
-            for k, (nm, s, r, dt) in enumerate(pool.imap_unordered(run_ifbo_job, jobs)):
+            for k, (nm, s, r, dt, nr) in enumerate(pool.imap_unordered(run_ifbo_job, jobs)):
                 regret[name_idx[nm], s] = r
+                n_runs[name_idx[nm], s] = nr
                 wall[name_idx[nm]] += dt / args.seeds
                 print(f"[{k + 1}/{len(jobs)}] {nm} seed {s}: final {r[-1]:.4f} ({dt:.0f}s)", flush=True)
     else:
@@ -157,10 +160,12 @@ def main():
                         a = random_search_step(env)
                     env.step(a)
             regret[i] = env.normalised_regret().cpu().numpy()
+            n_runs[i] = env.n_runs.cpu().numpy()
             wall[i] = (time.time() - t0) / args.seeds
-            print(f"{task.name}: final mean regret {regret[i, :, -1].mean():.4f} ({time.time() - t0:.0f}s)", flush=True)
+            print(f"{task.name}: final mean regret {regret[i, :, -1].mean():.4f} runs {n_runs[i].mean():.0f} "
+                  f"({time.time() - t0:.0f}s)", flush=True)
 
-    np.savez(out_dir / f"{tag}.npz", regret=regret, tasks=np.array([t.name for t in tasks]), wall=wall,
+    np.savez(out_dir / f"{tag}.npz", regret=regret, tasks=np.array([t.name for t in tasks]), wall=wall, n_runs=n_runs,
              args=str(vars(args)))
     print(f"saved {out_dir / (tag + '.npz')}; mean final regret {regret[:, :, -1].mean():.4f}")
 

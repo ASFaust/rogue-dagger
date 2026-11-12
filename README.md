@@ -60,8 +60,8 @@ doesn't matter.
 |---|---|---|
 | Training | ifBO curve prior, ported to batched GPU torch (`roguedagger/prior.py`) | ✅ |
 | Eval | TaskSet, 12 NLP tasks × {4p, 8p} = 24 tasks, same as ifBO | ✅ `scripts/download_taskset.py` |
-| Eval | PD1 tabular | raw tarball downloaded, processing TODO |
-| Eval | LCBench (35 tasks) | ❌ figshare refuses automated downloads; place `data_2k.zip` in `data/lcbench/` by hand |
+| Eval | PD1 tabular, the 28 task variants ifBO used | ✅ `scripts/process_pd1.py` |
+| Eval | LCBench, 35 tasks × first 1000 configs | ✅ `data_2k.zip` placed by hand (figshare refuses automated downloads), `scripts/process_lcbench.py` |
 
 ## Baseline
 
@@ -72,7 +72,8 @@ ifBO scores *every* unseen config in the table. Our shop is a random subset of
 those configs, so we also run a "full-table shop" variant as a like-for-like
 comparison.
 
-The `ifbo` package is vendored in `third_party/ifbo` (MIT). It has a
+The FT-PFN curve ids are table index + 1, as in ifBO's experiment code: unique per
+config and within the model's 1000-id embedding. The `ifbo` package is vendored in `third_party/ifbo` (MIT). It has a
 `from __future__ import annotations` patch so it runs on the shared Python 3.9
 venv, and `submitit` is made optional. The weights go in `data/ftpfn/`.
 
