@@ -4,7 +4,7 @@
 - [x] Repo, README, backlog
 - [x] Vendor ifbo + FT-PFN weights, runs on py3.9
 - [x] TaskSet eval data (24 tasks)
-- [~] GPU-batched ifBO prior (`prior.py`), check it against the numpy reference
+- [x] GPU-batched ifBO prior (`prior.py`); curve stats match the numpy reference (200 tasks × 16 configs)
 - [ ] Batched shop env (`env.py`): runs + fresh shop each step, async resets. Label value = min over curve[0 : len+H] (past included); prior runs uncapped (curves extend to the full budget); per-env `cap` flag for tabular-style max fidelity
 - [ ] Tokenizer (`features.py`): global token + run/shop tokens, normalisation across runs
 - [ ] Scorer (`model.py`): small set-transformer, scalar score per token
