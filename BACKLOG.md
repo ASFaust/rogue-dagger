@@ -5,7 +5,7 @@
 - [x] Vendor ifbo + FT-PFN weights, runs on py3.9
 - [x] TaskSet eval data (24 tasks)
 - [~] GPU-batched ifBO prior (`prior.py`), check it against the numpy reference
-- [ ] Batched shop env (`env.py`): runs + fresh shop each step, labels from full curves, async resets
+- [ ] Batched shop env (`env.py`): runs + fresh shop each step, async resets. Label value = min over curve[0 : len+H] (past included); prior runs uncapped (curves extend to the full budget); per-env `cap` flag for tabular-style max fidelity
 - [ ] Tokenizer (`features.py`): global token + run/shop tokens, normalisation across runs
 - [ ] Scorer (`model.py`): small set-transformer, scalar score per token
 - [ ] Training loop (`train.py`): pairwise BCE, multinomial rollouts, wandb, checkpoints, periodic synthetic eval vs random
@@ -20,6 +20,8 @@
 - Policy temperature τ (train vs deploy)
 - Time unit: fixed normalisation + last-10-points features for now; wall-time steps only matter in deployment
 - Pair weighting: plain BCE over all pairs vs weighting by |Δloss| or emphasising pairs near the top
+
+- Train-time fidelity cap: should some prior episodes use a cap (as the benchmarks do), so the policy learns about finished runs? Default is no cap.
 
 ## Later
 - Categorical hyperparameters (one-hot) — the eval benchmarks are all numeric, so prior + tokens are numeric-only for now

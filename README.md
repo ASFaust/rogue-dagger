@@ -21,9 +21,18 @@ score `s`. It is trained with pairwise BCE:
 
     p(a beats b within horizon H) = sigmoid(s_a - s_b)
 
-Here "a beats b" means that spending the next `H` steps on `a` reaches a lower
-loss than spending them on `b`. On the synthetic prior every curve exists in
-full, so these labels are exact, and every training step gets O(N²) pairs.
+Here "a beats b" means that `a`'s best loss *over its whole curve up to `H`
+more steps*, past points included, is lower than `b`'s. Past losses count:
+a run whose loss diverges keeps its best in the past, and that best is what it
+contributes to the incumbent. A suggestion has no past, so only its first `H`
+points count. On the synthetic prior every curve exists in full, so these
+labels are exact, and every training step gets O(N²) pairs.
+
+**Fidelity cap.** The ifBO prior can simulate training beyond `t = 1` (one
+nominal full training), so on the prior runs are never capped: a run can take
+the whole budget. Only the real tabular benchmarks stop at their maximum
+fidelity. There, a finished run can't be picked, and its value is its best
+point up to that cap.
 
 **Policy.** `softmax(s / τ)` is sampled as a multinomial. It is not greedy.
 
