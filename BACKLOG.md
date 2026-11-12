@@ -10,11 +10,13 @@
 - [x] Scorer (`model.py`): small set-transformer, scalar score per token
 - [x] Training loop (`train.py`): pairwise BCE, multinomial rollouts, wandb, checkpoints, periodic synthetic eval vs random
 - [x] Tabular benchmark loader + HPO loop (`bench.py`, `evaluate.py`)
-- [~] FT-PFN + MFPI-random baseline: TaskSet + PD1 done, LCBench running; random search done for all three
+- [x] FT-PFN + MFPI-random baseline + random search on TaskSet, PD1, LCBench
 - [x] PD1 tabular processing (`scripts/process_pd1.py`, 28 ifBO task variants)
 - [x] LCBench (35 tasks, first 1000 configs)
-- [~] First training runs + comparison: PD1 on par with FT-PFN, TaskSet behind (README, Results)
-- [ ] Find the TaskSet gap: label_past ablation, horizon anneal on wide, curve normalisation on log-loss curves
+- [x] First comparison (`wide-v1` @100k, full-table shop): PD1 better than FT-PFN, TaskSet on par, LCBench behind (README, Results)
+- [~] Ablations at 100k: horizon anneal (`wide_hanneal`), future-only label (`wide_future`), pair weighting (`wide_focus`)
+- [~] Scale: 300k iterations (`wide_long`); train-time shops up to 256 (`wide_bigshop`)
+- [ ] Close the LCBench gap (0.016 vs 0.008): early regret (@100) is about 2x FT-PFN's
 
 ## Open design questions (from PLAN.md)
 - Shop density and size `n`: start with uniform; then try mutation of top runs + uniform; TPE; Langevin on the scorer's own gradient (v2)

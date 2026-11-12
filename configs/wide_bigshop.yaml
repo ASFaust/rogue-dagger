@@ -1,0 +1,14 @@
+# wide.yaml with shops up to 256 items: the full-table deployment (~1000 items) beats shop 32,
+# but training only saw 4..64.
+env:
+  shop_mode: uniform
+  n_range: [4, 256]
+  T_range: [4, 300]
+  budget_full_range: [0.5, 200.0]
+  B_range: [20, 1200]
+  p_cap: 0.5
+train:
+  n_envs: 256
+  iters: 100000
+  h_start: 1.0
+  h_end: 1.0
