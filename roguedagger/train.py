@@ -36,7 +36,7 @@ DEFAULTS = {
     "train": {
         "n_envs": 256, "iters": 100_000, "lr": 3e-4, "wd": 0.01, "warmup": 1000,
         "grad_clip": 1.0, "temperature": 1.0, "h_start": 1.0, "h_end": 1.0,
-        "amp": True, "label_past": True, "log_every": 50, "ckpt_every": 5000, "eval_every": 5000,
+        "amp": True, "label_past": True, "pair_low": 1.0, "log_every": 50, "ckpt_every": 5000, "eval_every": 5000,
     },
     "eval": {"n_envs": 128, "seed": 1234, "T": 50, "B": 1000, "n": 32, "cap": True,
              "temperature": 1.0},
@@ -184,7 +184,13 @@ def main():
         vals = torch.cat([vals[:, :r_cur], vals[:, env.R:]], 1)
         with torch.autocast("cuda", dtype=torch.bfloat16, enabled=tc["amp"]):
             s = model(tok, pad)
-        loss, acc, npair = pairwise_loss(s.float(), vals, valid)
+        pw = None
+        if tc["pair_low"] < 1.0:
+            # contenders: items whose label value beats the current incumbent. Pairs with at
+            # least one contender keep weight 1, pairs of two non-contenders get pair_low.
+            cont = vals < env.best[:, None] - 1e-6
+            pw = torch.where(cont[:, :, None] | cont[:, None, :], 1.0, tc["pair_low"])
+        loss, acc, npair = pairwise_loss(s.float(), vals, valid, weight=pw)
         opt.zero_grad(set_to_none=True)
         loss.backward()
         gn = torch.nn.utils.clip_grad_norm_(model.parameters(), tc["grad_clip"])

@@ -28,10 +28,12 @@ class Scorer(nn.Module):
         return self.head(self.norm(h[:, 1:])).squeeze(-1).float()
 
 
-def pairwise_loss(scores: torch.Tensor, values: torch.Tensor, valid: torch.Tensor, tol: float = 1e-6):
+def pairwise_loss(scores: torch.Tensor, values: torch.Tensor, valid: torch.Tensor, tol: float = 1e-6,
+                  weight: torch.Tensor | None = None):
     """Pairwise BCE on p(i beats j) = sigmoid(s_i - s_j), target = [v_i < v_j].
 
     scores, values, valid: [E, M]. Pairs with |v_i - v_j| <= tol carry no label.
+    weight: optional [E, M, M] pair weights (per-env loss is the weighted mean).
     Returns (loss averaged per env then over envs, pair accuracy, mean #pairs).
     """
     dv = values[:, :, None] - values[:, None, :]
@@ -41,7 +43,8 @@ def pairwise_loss(scores: torch.Tensor, values: torch.Tensor, valid: torch.Tenso
     bce = nn.functional.binary_cross_entropy_with_logits(logit, target, reduction="none")
     npair = m.sum((1, 2))
     has = npair > 0
-    per_env = (bce * m).sum((1, 2)) / npair.clamp(min=1)
+    w = m.float() if weight is None else m.float() * weight
+    per_env = (bce * w).sum((1, 2)) / w.sum((1, 2)).clamp(min=1e-8)
     loss = per_env[has].mean() if has.any() else scores.sum() * 0
     acc = (((logit > 0).float() == target).float() * m).sum() / m.sum().clamp(min=1)
     return loss, acc, npair.float().mean()
