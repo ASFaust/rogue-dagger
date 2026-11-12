@@ -9,9 +9,9 @@
 - [x] Tokenizer (`features.py`): global token + run/shop tokens, normalisation across runs
 - [x] Scorer (`model.py`): small set-transformer, scalar score per token
 - [x] Training loop (`train.py`): pairwise BCE, multinomial rollouts, wandb, checkpoints, periodic synthetic eval vs random
-- [ ] Tabular benchmark loader + HPO loop (`bench.py`, `evaluate.py`)
-- [ ] FT-PFN + MFPI-random baseline, random search baseline
-- [ ] PD1 tabular processing
+- [x] Tabular benchmark loader + HPO loop (`bench.py`, `evaluate.py`)
+- [~] FT-PFN + MFPI-random baseline (running, CPU), random search baseline (done)
+- [x] PD1 tabular processing (`scripts/process_pd1.py`, 28 ifBO task variants)
 - [ ] First training run, then compare against FT-PFN on TaskSet (+ PD1)
 
 ## Open design questions (from PLAN.md)

@@ -99,11 +99,13 @@ def uniform_step(env):
 
 
 def random_search_step(env):
-    """Train the newest run to full fidelity T, then start a fresh random config."""
+    """Train the newest run to full fidelity T, then start a random config from the shop."""
     newest = (env.n_runs - 1).clamp(min=0)
     ln = env.run_len.gather(1, newest[:, None])[:, 0]
     cont = ln < env.T
-    return torch.where(cont, newest, torch.full_like(newest, env.R))
+    shop_ok = env.choosable()[:, env.R:].float()
+    pick = torch.multinomial(shop_ok + (shop_ok.sum(1, keepdim=True) == 0).float(), 1)[:, 0]
+    return torch.where(cont, newest, env.R + pick)
 
 
 @torch.no_grad()
