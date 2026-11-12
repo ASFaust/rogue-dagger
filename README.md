@@ -136,10 +136,17 @@ FT-PFN with a 95% bootstrap CI over tasks (positive = better than FT-PFN).
 | Random search | 0.340 | 0.0496 | 0.0625 |
 | R&D `wide-v1` @100k, shop 32, τ=1 | 0.095 (4/24; −0.042 [−0.063, −0.022]) | 0.0430 | 0.0227 |
 | R&D `wide-v1` @100k, full table, τ=0.25 | 0.062 (10/24; −0.008 [−0.026, +0.009]) | **0.0098** (14/28; +0.005 [+0.002, +0.010]) | 0.0162 (5/35; −0.009 [−0.013, −0.005]) |
+| R&D `wide-v1` @100k, full table, τ=0.15 | **0.051** (11/24; +0.003 [−0.012, +0.018]) | **0.0069** (16/28; +0.008 [+0.004, +0.013]) | 0.0181 (7/35; −0.011 [−0.016, −0.006]) |
+| R&D `wide-v1` @100k, full table, τ=0.1 | 0.051 (13/24; +0.003 [−0.010, +0.016]) | 0.0058 (17/28; +0.009 [+0.004, +0.015]) | 0.0218 |
+| R&D `wide-hanneal-v1` @100k, full table, τ=0.25 | 0.059 | 0.0079 | 0.0165 |
 | R&D `wide-v1` @55k, full table, τ=0.25 | 0.170 | 0.0113 | – |
 
 * With the full table as its shop (ifBO's setting): significantly better than FT-PFN on PD1,
-  on par on TaskSet, and still behind on LCBench (0.016 vs 0.008).
+  on par on TaskSet, and still behind on LCBench (0.016–0.022 vs 0.008).
+* **Caveat:** the deploy temperature was swept on the evaluation benchmarks themselves, so the τ=0.15/0.1
+  rows are optimistic. The best τ differs by family (lower helps TaskSet and PD1, hurts LCBench). τ should be
+  fixed on held-out data or the synthetic prior before claiming a win.
+* Horizon anneal (`wide-hanneal-v1`) is within noise of the full horizon on all three families.
 * Going from 55k to 100k training steps cut TaskSet regret from 0.170 to 0.062, so the policy was undertrained.
 * Deployment knobs (TaskSet, early `wide-v1` snapshot): sampling beats greedy by about 3× in regret
   (0.13 vs 0.43–0.47). The best temperature depends on shop size: τ=1 for 32 items, τ≈0.25 for the full table.
