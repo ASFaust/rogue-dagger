@@ -127,20 +127,22 @@ See [BACKLOG.md](BACKLOG.md) for what is done and what is open.
 Protocol from the ifBO paper: 1000 steps per task, 10 seeds, the first config
 random. Regret is normalised by the table's best and worst value (stricter than
 the paper's normalisation across algorithms). Numbers are mean final regret,
-lower is better. The ± range is a 95% bootstrap CI over tasks, for the paired
-gain against FT-PFN.
+lower is better. Brackets: tasks won against FT-PFN, and the paired gain against
+FT-PFN with a 95% bootstrap CI over tasks (positive = better than FT-PFN).
 
-| Method | TaskSet (24) | PD1 (28) |
-|---|---|---|
-| FT-PFN + MFPI-random (ifBO) | **0.053** | 0.0151 |
-| Random search | 0.340 | 0.0496 |
-| R&D `wide-v1` @55k, shop 32, τ=1 | 0.142 (1/24 wins; −0.089 [−0.120, −0.062]) | 0.0241 |
-| R&D `wide-v1` @55k, full table, τ=0.25 | 0.170 | **0.0113** (14/28 wins; +0.004 [−0.006, +0.013]) |
+| Method | TaskSet (24) | PD1 (28) | LCBench (35) |
+|---|---|---|---|
+| FT-PFN + MFPI-random (ifBO) | **0.053** | 0.0151 | **0.0076** |
+| Random search | 0.340 | 0.0496 | 0.0625 |
+| R&D `wide-v1` @100k, shop 32, τ=1 | 0.095 (4/24; −0.042 [−0.063, −0.022]) | 0.0430 | 0.0227 |
+| R&D `wide-v1` @100k, full table, τ=0.25 | 0.062 (10/24; −0.008 [−0.026, +0.009]) | **0.0098** (14/28; +0.005 [+0.002, +0.010]) | 0.0162 (5/35; −0.009 [−0.013, −0.005]) |
+| R&D `wide-v1` @55k, full table, τ=0.25 | 0.170 | 0.0113 | – |
 
-* PD1: on par with FT-PFN when the shop is the full table. TaskSet: still clearly behind.
+* With the full table as its shop (ifBO's setting): significantly better than FT-PFN on PD1,
+  on par on TaskSet, and still behind on LCBench (0.016 vs 0.008).
+* Going from 55k to 100k training steps cut TaskSet regret from 0.170 to 0.062, so the policy was undertrained.
 * Deployment knobs (TaskSet, early `wide-v1` snapshot): sampling beats greedy by about 3× in regret
   (0.13 vs 0.43–0.47). The best temperature depends on shop size: τ=1 for 32 items, τ≈0.25 for the full table.
 * Both policies spend 26–30% of their steps on runs whose best point is already in the
-  past, which matters on TaskSet's overfitting curves. Ablation `wide_future.yaml`
-  (`label_past: false`) is training.
+  past. Ablation `wide_future.yaml` (`label_past: false`) is training.
 * Run counts aren't the gap: FT-PFN starts 41–293 runs on PD1, we start a similar number.
