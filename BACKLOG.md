@@ -5,10 +5,10 @@
 - [x] Vendor ifbo + FT-PFN weights, runs on py3.9
 - [x] TaskSet eval data (24 tasks)
 - [x] GPU-batched ifBO prior (`prior.py`); curve stats match the numpy reference (200 tasks × 16 configs)
-- [ ] Batched shop env (`env.py`): runs + fresh shop each step, async resets. Label value = min over curve[0 : len+H] (past included); prior runs uncapped (curves extend to the full budget); per-env `cap` flag for tabular-style max fidelity
-- [ ] Tokenizer (`features.py`): global token + run/shop tokens, normalisation across runs
-- [ ] Scorer (`model.py`): small set-transformer, scalar score per token
-- [ ] Training loop (`train.py`): pairwise BCE, multinomial rollouts, wandb, checkpoints, periodic synthetic eval vs random
+- [x] Batched shop env (`env.py`): runs + fresh shop each step, async resets. Label value = min over curve[0 : len+H] (past included); prior runs uncapped (curves extend to the full budget); per-env `cap` flag for tabular-style max fidelity
+- [x] Tokenizer (`features.py`): global token + run/shop tokens, normalisation across runs
+- [x] Scorer (`model.py`): small set-transformer, scalar score per token
+- [x] Training loop (`train.py`): pairwise BCE, multinomial rollouts, wandb, checkpoints, periodic synthetic eval vs random
 - [ ] Tabular benchmark loader + HPO loop (`bench.py`, `evaluate.py`)
 - [ ] FT-PFN + MFPI-random baseline, random search baseline
 - [ ] PD1 tabular processing

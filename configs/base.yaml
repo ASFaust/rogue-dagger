@@ -1,0 +1,11 @@
+# v1 baseline: uniform shop, full remaining horizon, tau = 1
+env:
+  shop_mode: uniform
+  n_range: [4, 64]
+  p_cap: 0.0
+train:
+  n_envs: 256
+  iters: 100000
+  temperature: 1.0
+  h_start: 1.0
+  h_end: 1.0

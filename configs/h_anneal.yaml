@@ -1,0 +1,9 @@
+# under-report the horizon early (30% of remaining), full remaining at the end
+env:
+  shop_mode: uniform
+  n_range: [4, 64]
+train:
+  n_envs: 256
+  iters: 100000
+  h_start: 0.3
+  h_end: 1.0

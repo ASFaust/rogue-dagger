@@ -96,23 +96,26 @@ class PriorTasks:
 
     # ---- BNN forward -------------------------------------------------------------
     @torch.no_grad()
-    def bnn(self, x: torch.Tensor) -> torch.Tensor:
-        """x: [E, M, d_max] configs in [0, 1] -> [E, M, 23] BNN outputs."""
-        inp = (torch.arange(self.d_max, device=self.device)[None] < self.d[:, None]).float()
+    def bnn(self, x: torch.Tensor, idx: torch.Tensor | None = None) -> torch.Tensor:
+        """x: [E', M, d_max] configs in [0, 1] for task rows idx (all if None) -> [E', M, 23]."""
+        g = (lambda t: t) if idx is None else (lambda t: t[idx])
+        inp = (torch.arange(self.d_max, device=self.device)[None] < g(self.d)[:, None]).float()
         h = (x - 0.5) / math.sqrt(1 / 12) * inp[:, None, :]
-        pre = self.pre_std[:, None, None]
-        h = torch.tanh(torch.bmm(h, self.W0) + self.b0[:, None] + self._randn(*h.shape[:2], MAX_WIDTH) * pre)
+        pre = g(self.pre_std)[:, None, None]
+        h = torch.tanh(torch.bmm(h, g(self.W0)) + g(self.b0)[:, None] + self._randn(*h.shape[:2], MAX_WIDTH) * pre)
+        Wh, bh, nh = g(self.Wh), g(self.bh), g(self.n_hidden)
         for k in range(MAX_HIDDEN_LAYERS):
-            hn = torch.tanh(torch.bmm(h, self.Wh[:, k]) + self.bh[:, k, None] + self._randn(*h.shape) * pre)
-            h = torch.where((k < self.n_hidden)[:, None, None], hn, h)
-        out = torch.bmm(h, self.Wo) + self.bo[:, None]
-        return out + self._randn(*out.shape) * self.out_std[:, None, None]
+            hn = torch.tanh(torch.bmm(h, Wh[:, k]) + bh[:, k, None] + self._randn(*h.shape) * pre)
+            h = torch.where((k < nh)[:, None, None], hn, h)
+        out = torch.bmm(h, g(self.Wo)) + g(self.bo)[:, None]
+        return out + self._randn(*out.shape) * g(self.out_std)[:, None, None]
 
     @torch.no_grad()
-    def curve_params(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
+    def curve_params(self, x: torch.Tensor, idx: torch.Tensor | None = None) -> dict[str, torch.Tensor]:
         """Map configs to curve parameters, exactly as MyRNG consumes the 23 outputs."""
         N = self.sorted.numel()
-        idx = torch.searchsorted(self.sorted, self.bnn(x).contiguous()).double()  # [E, M, 23]
+        rows = idx
+        idx = torch.searchsorted(self.sorted, self.bnn(x, rows).contiguous()).double()  # [E', M, 23]
         eps = 0.5 / N
 
         def uni(k, a=0.0, b=1.0):
@@ -127,8 +130,8 @@ class PriorTasks:
         def expo(k):  # gamma(a=1) and exponential(scale=1)
             return -torch.log1p(-u_open(k))
 
-        y0 = self.y0.double()[:, None]
-        ymax = self.ymax.double()[:, None]
+        y0 = (self.y0 if rows is None else self.y0[rows]).double()[:, None]
+        ymax = (self.ymax if rows is None else self.ymax[rows]).double()[:, None]
         p = {}
         p["Yinf"] = (ymax - y0) * idx[..., 0] / N + y0
         w = torch.stack([expo(k) for k in (1, 2, 3, 4)], -1)
@@ -149,57 +152,54 @@ class PriorTasks:
         return p
 
     @torch.no_grad()
-    def curves(self, x: torch.Tensor, steps_per_run: torch.Tensor, t_max: int) -> torch.Tensor:
-        """Loss curves [E, M, t_max] for configs x [E, M, d_max].
+    def curves(self, x: torch.Tensor, steps_per_run: torch.Tensor, t_max: int,
+               idx: torch.Tensor | None = None) -> torch.Tensor:
+        """Loss curves [E', M, t_max] for configs x [E', M, d_max] of task rows idx (all if None).
 
-        Point k (0-based) is at prior time (k + 1) / steps_per_run[e]; points
+        Point k (0-based) is at prior time (k + 1) / steps_per_run[row]; points
         beyond steps_per_run are still computed (t > 1) but callers mask them.
         """
-        p = self.curve_params(x)
-        k = torch.arange(1, t_max + 1, device=self.device, dtype=torch.float64)
-        t = (k[None] / steps_per_run.double()[:, None])[:, None, :]  # [E, 1, T]
+        p = self.curve_params(x, idx)
+        k = torch.arange(1, t_max + 1, device=self.device, dtype=torch.float32)
+        t = (k[None] / steps_per_run.float()[:, None])[:, None, :]  # [E, 1, T]
         y = comb(t.expand(*x.shape[:2], t_max), p)
-        y = y + self._randn(*y.shape).double() * p["sigma"][..., None]
-        return (1.0 - y.clamp(0.0, 1.0)).float()
+        y = y + self._randn(*y.shape) * p["sigma"].float()[..., None]
+        return 1.0 - y.clamp(0.0, 1.0)
 
 
 def comb(x: torch.Tensor, p: dict[str, torch.Tensor]) -> torch.Tensor:
-    """Weighted basis-curve combination; x [E, M, T], params [E, M] or [E, M, 4]."""
+    """Weighted basis-curve combination; x [E, M, T], params [E, M] or [E, M, 4].
+
+    The finite-difference slopes for the x <= 0 tails (EPS = 1e-9) need float64
+    and are computed on the parameters only; the per-point evaluation runs in
+    the dtype of x (float32 in practice, ~10x faster than float64 here).
+    """
     EPS = 1e-9
-    Y0 = p["Y0"][..., None]
-    Yinf = p["Yinf"][..., None]
-    xe = torch.tensor([EPS, 2 * EPS], dtype=torch.float64, device=x.device)
+    xe = torch.tensor([EPS, 2 * EPS], dtype=torch.float64, device=x.device).view(1, 1, 2)
+    dt = x.dtype
 
-    def par(name, j):
-        return p[name][..., j][..., None]
+    def basis(q, z, j):
+        """Basis curve j (0 pow4, 1 exp, 2 log, 3 hill) for params dict q at z."""
+        Y0, Yinf = q["Y0"][..., None], q["Yinf"][..., None]
+        a, xs, pr = (q[k][..., j][..., None] for k in ("alpha", "Xsat", "PREC"))
+        if j == 0:
+            return Yinf - (Yinf - Y0) * ((pr ** (1 / a) - 1) / xs * z + 1) ** -a
+        if j == 1:
+            return Yinf - (Yinf - Y0) * pr ** (-((z / xs) ** a))
+        if j == 2:
+            return Yinf - (Yinf - Y0) * torch.log(a) / torch.log((a ** pr - a) * z / xs + a)
+        return Yinf - (Yinf - Y0) / ((z / xs) ** a * (pr - 1) + 1)
 
-    def brk(j):
-        xs, rp = par("Xsat", j), par("Rpsat", j)
-        return torch.where(x < xs, x, rp * (x - xs) + xs)
-
-    def with_tail(f, xb):
-        # exponential tail for x <= 0, matched to the slope just right of 0
-        fe = f(xe.view(1, 1, 2))
-        grad = (fe[..., 1:2] - fe[..., 0:1]) / EPS
-        tail = Y0 * torch.exp(xb * (grad + EPS) / Y0)
-        return torch.where(xb > 0, f(xb.clamp_min(EPS)), tail)
-
-    a, xs, pr = (lambda j: par("alpha", j)), (lambda j: par("Xsat", j)), (lambda j: par("PREC", j))
-
-    def f_pow(z):
-        return Yinf - (Yinf - Y0) * ((pr(0) ** (1 / a(0)) - 1) / xs(0) * z + 1) ** -a(0)
-
-    def f_exp(z):
-        return Yinf - (Yinf - Y0) * pr(1) ** (-((z / xs(1)) ** a(1)))
-
-    def f_log(z):
-        return Yinf - (Yinf - Y0) * torch.log(a(2)) / torch.log((a(2) ** pr(2) - a(2)) * z / xs(2) + a(2))
-
-    def f_hill(z):
-        return Yinf - (Yinf - Y0) / ((z / xs(3)) ** a(3) * (pr(3) - 1) + 1)
-
-    w = p["w"]
+    p64 = {k: v.double() for k, v in p.items()}
+    fe = [basis(p64, xe, j) for j in range(4)]
+    grads = [((f[..., 1:2] - f[..., 0:1]) / EPS).to(dt) for f in fe]   # [E, M, 1] each
+    q = {k: v.to(dt) for k, v in p.items()}
+    Y0 = q["Y0"][..., None]
     out = 0.0
-    for j, f in enumerate((f_pow, f_exp, f_log, f_hill)):
-        out = out + w[..., j][..., None] * with_tail(f, brk(j))
+    for j in range(4):
+        xsj, rpj = q["Xsat"][..., j][..., None], q["Rpsat"][..., j][..., None]
+        xb = torch.where(x < xsj, x, rpj * (x - xsj) + xsj)
+        main = basis(q, xb.clamp_min(EPS), j)
+        tail = Y0 * torch.exp(xb * (grads[j] + EPS) / Y0)
+        out = out + q["w"][..., j][..., None] * torch.where(xb > 0, main, tail)
     return out
