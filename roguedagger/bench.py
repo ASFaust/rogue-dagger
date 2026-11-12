@@ -108,8 +108,10 @@ class TabEnv:
     """E parallel HPO episodes on one tabular task; ShopEnv-compatible attributes."""
 
     def __init__(self, task: Task, n_envs: int, budget: int = 1000, n_shop: int | None = 32,
-                 device="cpu", seed: int = 0, d_max: int = 10):
+                 device="cpu", seed: int = 0, d_max: int = 10, shop_mode: str = "uniform",
+                 p_mutate: float = 0.5, mutate_std: float = 0.1, mutate_topk: int = 5):
         self.task, self.E, self.dev, self.d_max = task, n_envs, torch.device(device), d_max
+        self.shop_mode, self.p_mutate, self.mutate_std, self.mutate_topk = shop_mode, p_mutate, mutate_std, mutate_topk
         self.gen = torch.Generator(device=self.dev)
         self.gen.manual_seed(seed)
         n_cfg, d = task.X.shape
@@ -203,9 +205,40 @@ class TabEnv:
         else:
             noise = torch.rand(self.E, self.n_cfg, device=self.dev, generator=self.gen)
             noise = noise.masked_fill(~self.unseen, 2.0)
-            self.shop_ids = noise.topk(self.N, dim=1, largest=False).indices
-            self._shop_valid = self.unseen.gather(1, self.shop_ids)
+            ids = noise.topk(self.N, dim=1, largest=False).indices
+            dup = torch.zeros_like(ids, dtype=torch.bool)
+            if self.shop_mode == "mixed":
+                ids, dup = self._mutate_into(ids)
+            self.shop_ids = ids
+            self._shop_valid = self.unseen.gather(1, self.shop_ids) & ~dup
         self.shop_x = self.Xall[self.shop_ids]
+
+    def _mutate_into(self, ids):
+        """Replace a fraction of shop slots with the unseen config nearest to a Gaussian
+        perturbation of one of the top-k runs (by best loss so far). Duplicates are dropped
+        as invalid slots. Returns (ids, duplicate mask)."""
+        E, N, D = self.E, self.N, self.d_max
+        k = min(self.mutate_topk, self.R)
+        pos = torch.arange(self.L, device=self.dev)
+        rev = pos[None, None] < self.run_len[..., None]
+        best = torch.where(rev, self.run_curve, torch.full_like(self.run_curve, float("inf"))).min(2).values
+        top = best.topk(k, dim=1, largest=False).indices
+        n_top = self.n_runs.clamp(max=k, min=1)
+        pick = (torch.rand(E, N, device=self.dev, generator=self.gen) * n_top[:, None]).floor().long()
+        parent = self.run_x.gather(1, top.gather(1, pick)[..., None].expand(-1, -1, D))
+        dmask = (torch.arange(D, device=self.dev)[None] < self.d[:, None]).float()[:, None]
+        target = (parent + torch.randn(E, N, D, device=self.dev, generator=self.gen) * self.mutate_std) * dmask
+        dist = torch.cdist(target, self.Xall[None].expand(E, -1, -1))           # [E, N, n_cfg]
+        dist = dist.masked_fill(~self.unseen[:, None], float("inf"))
+        near = dist.argmin(-1)
+        use = torch.rand(E, N, device=self.dev, generator=self.gen) < self.p_mutate
+        out = torch.where(use, near, ids)
+        # duplicate picks within a shop: keep one, mark the rest invalid
+        srt, order = out.sort(1)
+        dup_sorted = torch.zeros_like(srt, dtype=torch.bool)
+        dup_sorted[:, 1:] = srt[:, 1:] == srt[:, :-1]
+        dup = torch.zeros_like(dup_sorted).scatter(1, order, dup_sorted)
+        return out, dup
 
     # --- metrics ----------------------------------------------------------------
     def normalised_regret(self):

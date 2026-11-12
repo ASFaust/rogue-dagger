@@ -106,6 +106,7 @@ def main():
     ap.add_argument("--n-shop", type=int, default=32)
     ap.add_argument("--temperature", type=float, default=1.0)
     ap.add_argument("--greedy", action="store_true")
+    ap.add_argument("--shop-mode", default="uniform", choices=["uniform", "mixed"])
     ap.add_argument("--h-start", type=float, default=None)
     ap.add_argument("--h-end", type=float, default=None)
     ap.add_argument("--device", default="cpu")
@@ -145,7 +146,8 @@ def main():
                  args.h_end if args.h_end is not None else tc["h_end"])
         for i, task in enumerate(tasks):
             t0 = time.time()
-            env = TabEnv(task, args.seeds, args.budget, n_shop=(args.n_shop or None), device=args.device, seed=0)
+            env = TabEnv(task, args.seeds, args.budget, n_shop=(args.n_shop or None), device=args.device, seed=0,
+                         shop_mode=args.shop_mode)
             with torch.no_grad():
                 while not env.done.all():
                     if args.method == "rd":

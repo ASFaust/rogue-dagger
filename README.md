@@ -98,4 +98,25 @@ CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=3 python -m roguedagger.train 
 Training logs to wandb (project `rogue-dagger`). The server is shared: use at
 most 3 GPUs at once, keep at least 2 free, and prefer GPUs 3–6.
 
+Configs: `base.yaml` (uniform shop, full horizon), `h_anneal.yaml` (the
+horizon starts at 30% of the remaining budget and anneals to 100%),
+`wide.yaml` (4–300 steps per full training, budgets of 0.5–200 full
+trainings, half the episodes capped at maximum fidelity, which together cover
+PD1's range).
+
+Evaluation (writes `runs/eval/<family>/<tag>.npz`):
+
+```bash
+python scripts/download_taskset.py data/taskset          # 24 TaskSet tasks
+python scripts/process_pd1.py data/pd1/pd1 data/pd1      # after untarring pd1.tar.gz
+python -m roguedagger.evaluate --method rd --ckpt runs/base-v1/last.pt --family taskset --device cuda --tag rd-base
+python -m roguedagger.evaluate --method ifbo --family taskset --workers 64    # FT-PFN, CPU, ~200 GB RAM at 64 workers
+python -m roguedagger.evaluate --method random_search --family taskset
+python scripts/compare.py taskset ifbo random_search rd-base --ref ifbo --plot
+```
+
+`--n-shop 0` gives our policy the whole unseen table as its shop, the setting
+ifBO uses. `--shop-mode mixed` turns half the shop slots into mutations of the
+top runs, snapped to the nearest unseen config.
+
 See [BACKLOG.md](BACKLOG.md) for what is done and what is open.
