@@ -150,6 +150,7 @@ FT-PFN with a 95% bootstrap CI over tasks (positive = better than FT-PFN).
 * Going from 55k to 100k training steps cut TaskSet regret from 0.170 to 0.062, so the policy was undertrained.
 * Deployment knobs (TaskSet, early `wide-v1` snapshot): sampling beats greedy by about 3× in regret
   (0.13 vs 0.43–0.47). The best temperature depends on shop size: τ=1 for 32 items, τ≈0.25 for the full table.
-* Both policies spend 26–30% of their steps on runs whose best point is already in the
-  past. Ablation `wide_future.yaml` (`label_past: false`) is training.
+* Label ablation `wide-future-v1` (`label_past: false`, only the next `H` points count), paired against
+  `wide-v1` at full table, τ=0.25: TaskSet +0.009 [−0.003, +0.023] (not significant), PD1 −0.002
+  [−0.004, +0.000], LCBench −0.004 [−0.007, −0.001] (significantly worse). Keeping past losses in the label stays the default.
 * Run counts aren't the gap: FT-PFN starts 41–293 runs on PD1, we start a similar number.

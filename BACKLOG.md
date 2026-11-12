@@ -14,7 +14,9 @@
 - [x] PD1 tabular processing (`scripts/process_pd1.py`, 28 ifBO task variants)
 - [x] LCBench (35 tasks, first 1000 configs)
 - [x] First comparison (`wide-v1` @100k, full-table shop): PD1 better than FT-PFN, TaskSet on par, LCBench behind (README, Results)
-- [~] Ablations at 100k: horizon anneal (`wide_hanneal`), future-only label (`wide_future`), pair weighting (`wide_focus`)
+- [x] Ablations at 100k: horizon anneal (no effect), future-only label (worse on LCBench, not better elsewhere)
+- [~] Pair weighting (`wide_focus`)
+- [ ] Pick the deploy τ without using the benchmarks (synthetic prior with a ~1000-item shop)
 - [~] Scale: 300k iterations (`wide_long`); train-time shops up to 256 (`wide_bigshop`)
 - [ ] Close the LCBench gap (0.016 vs 0.008): early regret (@100) is about 2x FT-PFN's
 
