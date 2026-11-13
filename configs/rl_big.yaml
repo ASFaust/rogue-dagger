@@ -1,0 +1,17 @@
+# RL on shops up to 256 items (as wide_bigshop.yaml): RL on shops of 4..64 improved shop-32 deployment but
+# hurt the full-table setting (~1000 items), so train closer to it. 1500 updates (24k env steps) to bound the cost.
+env:
+  shop_mode: uniform
+  n_range: [4, 256]
+  T_range: [4, 300]
+  budget_full_range: [0.5, 200.0]
+  B_range: [20, 1200]
+  p_cap: 0.5
+  ref_pool: 512
+train:
+  n_envs: 256
+rl:
+  init: runs/wide-v1/last.pt
+  temperature: 0.25
+  reward: log
+  updates: 1500

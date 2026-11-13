@@ -151,7 +151,9 @@ FT-PFN with a 95% bootstrap CI over tasks (positive = better than FT-PFN).
 | R&D `wide-long-v1` @300k, full table, τ=0.25 | 0.070 (8/24; −0.016 [−0.029, −0.005]) | 0.0142 (12/28; +0.001 [−0.003, +0.005]) | 0.0311 (3/35; −0.024 [−0.036, −0.013]) |
 | R&D `wide-bigshop-v1` @100k (train shops to 256), full table, τ=0.25 | **0.049** (13/24; +0.004 [−0.015, +0.023]) | 0.0191 (9/28; −0.004 [−0.008, −0.001]) | 0.0119 (5/35; −0.004 [−0.006, −0.003]) |
 | R&D `wide-t025-v1` @100k (train τ=0.25), full table, τ=0.25 | 0.090 (5/24; −0.037 [−0.064, −0.015]) | 0.0141 (11/28; +0.001 [−0.002, +0.004]) | 0.0198 (3/35; −0.012 [−0.018, −0.007]) |
-| R&D `wide-readout-v1` @100k (MLP readout), full table, τ=0.25 | pending | pending | 0.0238 (9/35; −0.016 [−0.033, −0.003]) |
+| R&D `wide-readout-v1` @100k (MLP readout), full table, τ=0.25 | **0.047** (12/24; +0.007 [−0.014, +0.028]) | 0.0122 (14/28; +0.003 [−0.000, +0.006]) | 0.0238 (9/35; −0.016 [−0.033, −0.003]) |
+| R&D `wide-focus03-v1` @100k (pair weighting 0.3), full table, τ=0.25 | 0.064 (10/24; −0.011 [−0.030, +0.009]) | **0.0059** (19/28; +0.009 [+0.005, +0.015]) | 0.0140 (8/35; −0.006 [−0.011, −0.002]) |
+| R&D `rl-wide-v1` (PPO from wide-v1, aux BCE), full table, τ=0.25 | 0.070 (3/24; −0.017 [−0.030, −0.004]) | **0.0056** (18/28; +0.010 [+0.005, +0.015]) | 0.0154 (4/35; −0.008 [−0.012, −0.004]) |
 | R&D `wide-hanneal-v1` @100k, full table, τ=0.25 | 0.059 | 0.0079 | 0.0165 |
 | R&D `wide-v1` @55k, full table, τ=0.25 | 0.170 | 0.0113 | – |
 
@@ -173,6 +175,17 @@ FT-PFN with a 95% bootstrap CI over tasks (positive = better than FT-PFN).
   - **Training rollouts at τ=0.25** (`wide-t025-v1`) is worse everywhere: TaskSet −0.029, PD1 −0.004, LCBench
     −0.004 (all significant). At τ=0.25 the rollouts start about half as many runs (5–7 % of steps vs 10–14 %),
     so the scorer sees fewer, harder pairs (≈4.5k vs 12k per batch).
+* **Pair weighting 0.3** (`wide-focus03-v1`) vs `wide-v1`: PD1 +0.004 [+0.002, +0.006] (23/28), LCBench +0.002
+  [−0.001, +0.006], TaskSet −0.002 [−0.012, +0.007]. Weight 0.1 traded PD1 for LCBench, 0.3 keeps the PD1 gain.
+* **RL extension** (docs/rl.md; PPO from a pairwise checkpoint, 40k env steps), paired against `wide-v1` at the same deploy setting:
+  - with the pairwise aux loss (`rl-wide-v1`), full table: PD1 +0.004 [+0.002, +0.007] (22/28), TaskSet −0.008
+    [−0.022, +0.008], LCBench +0.001 [−0.002, +0.004]. The synthetic eval did not move (0.037 → 0.038).
+  - pure RL (`rl-wide-noaux-v1`, snapshot at 12k env steps): at **shop 32** (the training range 4..64; both at
+    τ=0.25) TaskSet **+0.057 [+0.023, +0.095]** (16/24), PD1 −0.003 [−0.007, −0.000], LCBench +0.002 [−0.004, +0.009];
+    on the **full table** it is much worse everywhere (TaskSet 0.138). RL specialises to the shop sizes it trains on.
+    It also drifts to starting many runs (20 % of steps, hits the 384-run cap). Synthetic eval (shop 32) 0.037 → 0.030.
+  - from scratch (`rl-scratch-v1`, τ=1, aux BCE), full table: slightly worse than `wide-v1` (TaskSet −0.022, PD1 −0.003,
+    LCBench −0.003), after 40k env steps instead of 100k.
 * Horizon anneal (`wide-hanneal-v1`) is within noise of the full horizon on all three families.
 * Going from 55k to 100k training steps cut TaskSet regret from 0.170 to 0.062, so the policy was undertrained.
 * Deployment knobs (TaskSet, early `wide-v1` snapshot): sampling beats greedy by about 3× in regret

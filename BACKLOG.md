@@ -21,16 +21,19 @@
   - at τ=1 the scores flatten during training (entropy 1.3 -> 3.2),
   the policy starts ever more runs and the on-policy loss rises, while greedy keeps improving
 - [x] Scale: 300k iterations (`wide_long`) worse everywhere; train shops up to 256 (`wide_bigshop`) better on TaskSet + LCBench, worse on PD1
-- [~] MLP readout (`wide_readout`): LCBench worse (0.024); TaskSet / PD1 eval running
-- [~] Pair weighting 0.3 (`wide_focus03`): training (restarted 2026-11-13)
+- [x] MLP readout (`wide_readout`): best TaskSet (0.047), PD1 ≈, LCBench worse (0.024)
+- [x] Pair weighting 0.3 (`wide_focus03`): PD1 0.0059 (better than wide-v1 and FT-PFN), LCBench 0.014, TaskSet ≈
+- [~] Pair weighting 0.3 + train shops to 256 (`wide_focus03_big`): training
 - [ ] Close the LCBench gap (0.016 vs 0.008): early regret (@100) is about 2x FT-PFN's
 
 ## RL extension (docs/rl.md)
 - [x] PPO + GAE trainer (`roguedagger/rl.py`) starting from a pairwise checkpoint; separate critic initialised from its trunk; critic-only warmup; pairwise BCE as aux loss
 - [x] Reward: per-step decrease of log normalised regret (pool of 512 random configs per task), always >= 0
 - [x] fp32 heads + recomputed old log-probs (bf16 noise otherwise clips ~15 % of PPO ratios at τ=0.25)
-- [~] First runs (2026-11-13): `rl-wide-v1` (init wide-v1), `rl-wide-noaux-v1` (aux 0), `rl-scratch-v1` (no pretraining)
-- [ ] Benchmark eval of the RL runs at their training τ (`T32=0.25 TFULL=0.25 sh scripts/eval_ckpts.sh ...`)
+- [x] First runs: `rl-wide-v1` (PD1 +0.004 on full table, rest ≈), `rl-wide-noaux-v1` (shop 32 TaskSet +0.057, full table much worse), `rl-scratch-v1` (≈ slightly below wide-v1)
+- [~] RL on shops up to 256 (`rl_big.yaml`): `rl-big-noaux-v1` (from wide-v1), `rl-big-focus03-v1` (from wide-focus03-v1, aux)
+- [ ] Pure RL drifts to starting runs until the 384-run cap: check whether that is the reward (log, ε) or the shop-size specialisation
+- [ ] Learnable τ (log τ trained by the PPO loss only), proposed to the user
 - [ ] Reward ablation: linear vs log; init from `wide-bigshop-v1`; shared vs separate critic if speed matters
 
 ## Open design questions (from PLAN.md)
