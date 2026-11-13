@@ -1,0 +1,12 @@
+# wide + pair weighting at 0.3: between wide-v1 (1.0, best on PD1) and wide-focus-v1 (0.1, best on LCBench)
+env:
+  shop_mode: uniform
+  n_range: [4, 64]
+  T_range: [4, 300]
+  budget_full_range: [0.5, 200.0]
+  B_range: [20, 1200]
+  p_cap: 0.5
+train:
+  n_envs: 256
+  iters: 100000
+  pair_low: 0.3
