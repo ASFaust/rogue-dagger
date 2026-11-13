@@ -1,0 +1,16 @@
+# RL fine-tuning (roguedagger.rl) of the pairwise-pretrained wide-v1 scorer.
+# Same env distribution as wide.yaml, plus the reference pool that sets the regret scale.
+env:
+  shop_mode: uniform
+  n_range: [4, 64]
+  T_range: [4, 300]
+  budget_full_range: [0.5, 200.0]
+  B_range: [20, 1200]
+  p_cap: 0.5
+  ref_pool: 512
+train:
+  n_envs: 256
+rl:
+  init: runs/wide-v1/last.pt
+  temperature: 0.25
+  reward: log

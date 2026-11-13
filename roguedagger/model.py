@@ -17,6 +17,13 @@ from torch import nn
 from .features import N_GLOBAL, OFF_G, feature_dim
 
 
+def _fp32(head: nn.Module, x: torch.Tensor) -> torch.Tensor:
+    """Run a small output head in fp32 even under bf16 autocast: bf16 scores are quantised to
+    ~1/128 relative (0.06 at |s| = 8), which a low policy temperature turns into log-prob noise."""
+    with torch.autocast(x.device.type, enabled=False):
+        return head(x.float())
+
+
 class Scorer(nn.Module):
     def __init__(self, d_max: int = 10, d_model: int = 256, n_layers: int = 6, n_heads: int = 8,
                  d_ff: int = 1024, dropout: float = 0.0, readout: str = "token"):
@@ -39,7 +46,7 @@ class Scorer(nn.Module):
         """
         if self.readout == "token":
             h = self.trunk(self.embed(tok), src_key_padding_mask=pad)
-            return self.head(self.norm(h[:, 1:])).squeeze(-1).float()
+            return _fp32(self.head, self.norm(h[:, 1:])).squeeze(-1)
         h = self.norm(self.trunk(self.embed(tok[:, 1:]), src_key_padding_mask=pad[:, 1:]))   # [E, M, d]
         single = glob is None
         if single:
@@ -47,7 +54,7 @@ class Scorer(nn.Module):
         E, K, M = h.shape[0], glob.shape[1], h.shape[1]
         x = torch.cat([h[:, None].expand(E, K, M, h.shape[-1]),
                        glob[:, :, None].to(h.dtype).expand(E, K, M, glob.shape[-1])], -1)
-        s = self.head(x).squeeze(-1).float()
+        s = _fp32(self.head, x).squeeze(-1)
         return s[:, 0] if single else s
 
 
@@ -82,3 +89,35 @@ def sample_action(scores: torch.Tensor, valid: torch.Tensor, temperature: float 
     if greedy:
         return logits.argmax(-1), ent
     return torch.multinomial(p, 1, generator=generator)[:, 0], ent
+
+
+class Critic(nn.Module):
+    """State value V(s) for RL: the scorer's trunk (global token in the trunk, as in readout
+    "token") with a value head on the global token's final embedding.
+
+    Same module names as Scorer, so a pairwise-trained "token" checkpoint initialises embed,
+    trunk and norm (see load_trunk); only the value head starts from scratch.
+    """
+
+    def __init__(self, d_max: int = 10, d_model: int = 256, n_layers: int = 6, n_heads: int = 8,
+                 d_ff: int = 1024, dropout: float = 0.0, **_):
+        super().__init__()
+        self.embed = nn.Sequential(nn.Linear(feature_dim(d_max), d_model), nn.GELU(), nn.Linear(d_model, d_model))
+        layer = nn.TransformerEncoderLayer(d_model, n_heads, d_ff, dropout, activation="gelu",
+                                           batch_first=True, norm_first=True)
+        self.trunk = nn.TransformerEncoder(layer, n_layers, enable_nested_tensor=False)
+        self.norm = nn.LayerNorm(d_model)
+        self.value_head = nn.Sequential(nn.Linear(d_model, d_model), nn.GELU(), nn.Linear(d_model, 1))
+
+    def forward(self, tok: torch.Tensor, pad: torch.Tensor) -> torch.Tensor:
+        """tok [E, S, F], pad [E, S] -> V [E], fp32."""
+        h = self.trunk(self.embed(tok), src_key_padding_mask=pad)
+        return _fp32(self.value_head, self.norm(h[:, 0])).squeeze(-1)
+
+    def load_trunk(self, scorer_state: dict) -> int:
+        """Copy embed / trunk / norm from a Scorer state dict. -> number of tensors copied."""
+        own = self.state_dict()
+        sd = {k: v for k, v in scorer_state.items() if k.split(".")[0] in ("embed", "trunk", "norm")
+              and k in own and own[k].shape == v.shape}
+        self.load_state_dict(sd, strict=False)
+        return len(sd)

@@ -15,14 +15,23 @@
 - [x] LCBench (35 tasks, first 1000 configs)
 - [x] First comparison (`wide-v1` @100k, full-table shop): PD1 better than FT-PFN, TaskSet on par, LCBench behind (README, Results)
 - [x] Ablations at 100k: horizon anneal (no effect), future-only label (worse on LCBench, not better elsewhere)
-- [ ] Pair weighting 0.3 (`wide_focus03`): not trained yet (crashed when the GPUs dropped)
 - [x] Pair weighting (`wide_focus`): LCBench much better (on par with FT-PFN), PD1 worse, TaskSet same
 - [x] Pick the deploy τ without using the benchmarks (`scripts/synth_tau.py`: τ=0.25)
-- [~] Training τ = deploy τ (`wide_t025`, trained, eval pending): at τ=1 the scores flatten during training (entropy 1.3 -> 3.2),
+- [x] Training τ = deploy τ (`wide_t025`): worse on all three families (starts half as many runs in training)
+  - at τ=1 the scores flatten during training (entropy 1.3 -> 3.2),
   the policy starts ever more runs and the on-policy loss rises, while greedy keeps improving
-- [~] (trained, eval pending) MLP readout without global token + 4 horizons per step (`wide_readout`, `model.readout: mlp`, `train.n_horizons`)
-- [~] Scale: 300k iterations (`wide_long`); train-time shops up to 256 (`wide_bigshop`): trained, benchmark eval pending (HANDOFF.md)
+- [x] Scale: 300k iterations (`wide_long`) worse everywhere; train shops up to 256 (`wide_bigshop`) better on TaskSet + LCBench, worse on PD1
+- [~] MLP readout (`wide_readout`): LCBench worse (0.024); TaskSet / PD1 eval running
+- [~] Pair weighting 0.3 (`wide_focus03`): training (restarted 2026-11-13)
 - [ ] Close the LCBench gap (0.016 vs 0.008): early regret (@100) is about 2x FT-PFN's
+
+## RL extension (docs/rl.md)
+- [x] PPO + GAE trainer (`roguedagger/rl.py`) starting from a pairwise checkpoint; separate critic initialised from its trunk; critic-only warmup; pairwise BCE as aux loss
+- [x] Reward: per-step decrease of log normalised regret (pool of 512 random configs per task), always >= 0
+- [x] fp32 heads + recomputed old log-probs (bf16 noise otherwise clips ~15 % of PPO ratios at τ=0.25)
+- [~] First runs (2026-11-13): `rl-wide-v1` (init wide-v1), `rl-wide-noaux-v1` (aux 0), `rl-scratch-v1` (no pretraining)
+- [ ] Benchmark eval of the RL runs at their training τ (`T32=0.25 TFULL=0.25 sh scripts/eval_ckpts.sh ...`)
+- [ ] Reward ablation: linear vs log; init from `wide-bigshop-v1`; shared vs separate critic if speed matters
 
 ## Open design questions (from PLAN.md)
 - Shop density and size `n`: start with uniform; then try mutation of top runs + uniform; TPE; Langevin on the scorer's own gradient (v2)

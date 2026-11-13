@@ -88,7 +88,8 @@ venv, and `submitit` is made optional. The weights go in `data/ftpfn/`.
 ## Layout
 
 ```
-roguedagger/    package: prior.py, env.py, features.py, model.py, train.py, bench.py, evaluate.py
+roguedagger/    package: prior.py, env.py, features.py, model.py, train.py (pairwise), rl.py (PPO), bench.py, evaluate.py
+docs/           rl.md: design of the RL extension
 configs/        YAML configs for training / eval
 scripts/        data download + processing
 third_party/    vendored ifbo (FT-PFN)
@@ -147,6 +148,10 @@ FT-PFN with a 95% bootstrap CI over tasks (positive = better than FT-PFN).
 | R&D `wide-v1` @100k, full table, τ=0.15 | **0.051** (11/24; +0.003 [−0.012, +0.018]) | **0.0069** (16/28; +0.008 [+0.004, +0.013]) | 0.0181 (7/35; −0.011 [−0.016, −0.006]) |
 | R&D `wide-v1` @100k, full table, τ=0.1 | 0.051 (13/24; +0.003 [−0.010, +0.016]) | 0.0058 (17/28; +0.009 [+0.004, +0.015]) | 0.0218 |
 | R&D `wide-focus-v1` @100k (pair weighting), full table, τ=0.25 | 0.060 (11/24; −0.006 [−0.027, +0.015]) | 0.0169 (8/28; −0.002 [−0.008, +0.005]) | 0.0092 (10/35; −0.002 [−0.003, +0.000]) |
+| R&D `wide-long-v1` @300k, full table, τ=0.25 | 0.070 (8/24; −0.016 [−0.029, −0.005]) | 0.0142 (12/28; +0.001 [−0.003, +0.005]) | 0.0311 (3/35; −0.024 [−0.036, −0.013]) |
+| R&D `wide-bigshop-v1` @100k (train shops to 256), full table, τ=0.25 | **0.049** (13/24; +0.004 [−0.015, +0.023]) | 0.0191 (9/28; −0.004 [−0.008, −0.001]) | 0.0119 (5/35; −0.004 [−0.006, −0.003]) |
+| R&D `wide-t025-v1` @100k (train τ=0.25), full table, τ=0.25 | 0.090 (5/24; −0.037 [−0.064, −0.015]) | 0.0141 (11/28; +0.001 [−0.002, +0.004]) | 0.0198 (3/35; −0.012 [−0.018, −0.007]) |
+| R&D `wide-readout-v1` @100k (MLP readout), full table, τ=0.25 | pending | pending | 0.0238 (9/35; −0.016 [−0.033, −0.003]) |
 | R&D `wide-hanneal-v1` @100k, full table, τ=0.25 | 0.059 | 0.0079 | 0.0165 |
 | R&D `wide-v1` @55k, full table, τ=0.25 | 0.170 | 0.0113 | – |
 
@@ -159,6 +164,15 @@ FT-PFN with a 95% bootstrap CI over tasks (positive = better than FT-PFN).
 * Pair weighting (`wide-focus-v1`, `pair_low: 0.1`: pairs where neither item beats the incumbent get 1/10
   weight), paired against `wide-v1`: LCBench +0.007 [+0.004, +0.011] (26/35 tasks, now on par with FT-PFN),
   TaskSet +0.002 [−0.008, +0.013], PD1 −0.007 [−0.012, −0.003] (worse). A trade-off, not a free gain.
+* Scale / training-distribution runs (2026-11-13), paired against `wide-v1` (full table, τ=0.25):
+  - **300k iterations** (`wide-long-v1`) is worse everywhere: TaskSet −0.008 [−0.020, +0.005], PD1 −0.004
+    [−0.010, −0.000], LCBench −0.015 [−0.025, −0.007]. Longer training on the prior overfits it. 55k → 100k
+    helped because of the extra steps or the LR decay, not because more is better.
+  - **Train shops up to 256** (`wide-bigshop-v1`): TaskSet +0.013 [+0.001, +0.024] (19/24) and LCBench +0.004
+    [+0.001, +0.008] are better, PD1 −0.009 [−0.016, −0.004] is worse. Another trade-off, like pair weighting.
+  - **Training rollouts at τ=0.25** (`wide-t025-v1`) is worse everywhere: TaskSet −0.029, PD1 −0.004, LCBench
+    −0.004 (all significant). At τ=0.25 the rollouts start about half as many runs (5–7 % of steps vs 10–14 %),
+    so the scorer sees fewer, harder pairs (≈4.5k vs 12k per batch).
 * Horizon anneal (`wide-hanneal-v1`) is within noise of the full horizon on all three families.
 * Going from 55k to 100k training steps cut TaskSet regret from 0.170 to 0.062, so the policy was undertrained.
 * Deployment knobs (TaskSet, early `wide-v1` snapshot): sampling beats greedy by about 3× in regret

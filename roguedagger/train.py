@@ -53,8 +53,8 @@ def deep_update(base, upd):
     return base
 
 
-def load_config(path, overrides):
-    cfg = copy.deepcopy(DEFAULTS)
+def load_config(path, overrides, defaults=None):
+    cfg = copy.deepcopy(DEFAULTS if defaults is None else defaults)
     if path:
         deep_update(cfg, yaml.safe_load(Path(path).read_text()) or {})
     for ov in overrides:

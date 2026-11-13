@@ -40,6 +40,7 @@ class EnvConfig:
     p_mutate: float = 0.5                 # mixed: fraction of shop items that mutate a top run
     mutate_std: float = 0.1
     mutate_topk: int = 5
+    ref_pool: int = 0                     # RL: random configs per task that set the regret scale (0 = off)
 
 
 def _log_uniform_int(lo, hi, n, device, gen):
@@ -79,6 +80,8 @@ class ShopEnv:
         self.best = torch.ones(E, device=dev)
         self.oracle = torch.ones(E, device=dev)   # best value reachable by any item ever offered
         self.n_new = torch.zeros(E, dtype=torch.long, device=dev)
+        self.ref_lo = torch.zeros(E, device=dev)  # regret scale (ref_pool > 0): min / max loss of the pool
+        self.ref_hi = torch.ones(E, device=dev)
         self.reset(torch.arange(E, device=dev))
         self._draw_shop()
 
@@ -182,6 +185,27 @@ class ShopEnv:
         self.best[idx] = c[:, 0, 0]
         self.oracle[idx] = cm[:, 0, -1]
         self.n_new[idx] = 0
+        if self.cfg.ref_pool > 0:
+            self._ref_scale(idx)
+
+    def _ref_scale(self, idx, chunk: int = 64):
+        """Min / max loss over every legal point of ref_pool random configs: the prior analogue of
+        the tabular benchmarks' table best / worst, fixed per task at reset."""
+        n, D = idx.numel(), self.d_max
+        dmask = (torch.arange(D, device=self.dev)[None] < self.d[idx][:, None]).float()
+        lo = torch.full((n,), float("inf"), device=self.dev)
+        hi = torch.full((n,), -float("inf"), device=self.dev)
+        for k in range(0, self.cfg.ref_pool, chunk):
+            m = min(chunk, self.cfg.ref_pool - k)
+            c, _ = self._materialise(self._rand(n, m, D) * dmask[:, None], idx)
+            lo = torch.minimum(lo, c.amin((1, 2)))
+            hi = torch.maximum(hi, c.amax((1, 2)))
+        self.ref_lo[idx], self.ref_hi[idx] = lo, torch.maximum(hi, lo + 1e-6)
+
+    def norm_regret(self, best=None):
+        """(best - ref_lo) / (ref_hi - ref_lo), clamped at 0 (the agent may beat the pool)."""
+        best = self.best if best is None else best
+        return ((best - self.ref_lo) / (self.ref_hi - self.ref_lo)).clamp(min=0)
 
     def _apply(self, action):
         """Apply actions for envs with action >= 0. Returns observed loss [E]."""
@@ -210,10 +234,14 @@ class ShopEnv:
         return y
 
     def step(self, action):
-        """action [E] -> dict with done mask and episode stats of finished envs."""
+        """action [E] -> dict with done mask and episode stats of finished envs.
+
+        regret_prev / regret [E]: normalised regret of every env before and after this step,
+        measured before finished envs are reset (meaningful only with cfg.ref_pool > 0)."""
+        reg_prev = self.norm_regret()
         self._apply(action)
         done = self.consumed >= self.B
-        out = {"done": done.clone()}
+        out = {"done": done.clone(), "regret_prev": reg_prev, "regret": self.norm_regret()}
         if done.any():
             de = done.nonzero()[:, 0]
             out.update(final_best=self.best[de].clone(), oracle=self.oracle[de].clone(),
