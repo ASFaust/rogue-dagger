@@ -1,5 +1,7 @@
 # Rogue&Dagger HPO
 
+> Picking this up in a new session? Start with [HANDOFF.md](HANDOFF.md).
+
 Freeze-thaw hyperparameter optimisation played like a roguelike deckbuilder.
 Your **deck** is the set of training runs you have started. Each step a new
 **shop** of `n` freshly sampled hyperparameter configs appears. With every unit
