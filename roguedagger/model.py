@@ -121,3 +121,60 @@ class Critic(nn.Module):
               and k in own and own[k].shape == v.shape}
         self.load_state_dict(sd, strict=False)
         return len(sd)
+
+
+class QHead(nn.Module):
+    """Per-token Q(s, a) MLP over [frozen token embedding | global features] (automl-exam's QHead)."""
+
+    def __init__(self, d_in: int, hidden: int = 64):
+        super().__init__()
+        self.mlp = nn.Sequential(nn.Linear(d_in, hidden), nn.SiLU(), nn.Linear(hidden, hidden), nn.SiLU(),
+                                 nn.Linear(hidden, 1))
+
+    def forward(self, e: torch.Tensor, g: torch.Tensor) -> torch.Tensor:
+        """e [B, M, d], g [B, N_GLOBAL] -> Q [B, M] (fp32; no masking here)."""
+        x = torch.cat([e.float(), g.float()[:, None].expand(-1, e.shape[1], -1)], -1)
+        return _fp32(self.mlp, x).squeeze(-1)
+
+
+class SoftQ(nn.Module):
+    """Implicit-actor soft Q policy on a frozen scorer trunk: pi = softmax(beta * min(Q1, Q2)).
+
+    embed / trunk / norm have the Scorer's names (load_trunk copies them from a pairwise checkpoint);
+    features() is the frozen part, h1 / h2 the twin Q heads, log_beta the learned inverse temperature.
+    forward() returns beta * min(Q1, Q2), so it plugs into policy_step / evaluate.py at temperature 1.
+    """
+
+    def __init__(self, d_max: int = 10, d_model: int = 256, n_layers: int = 6, n_heads: int = 8,
+                 d_ff: int = 1024, dropout: float = 0.0, head_hidden: int = 64, **_):
+        super().__init__()
+        self.embed = nn.Sequential(nn.Linear(feature_dim(d_max), d_model), nn.GELU(), nn.Linear(d_model, d_model))
+        layer = nn.TransformerEncoderLayer(d_model, n_heads, d_ff, dropout, activation="gelu",
+                                           batch_first=True, norm_first=True)
+        self.trunk = nn.TransformerEncoder(layer, n_layers, enable_nested_tensor=False)
+        self.norm = nn.LayerNorm(d_model)
+        self.h1 = QHead(d_model + N_GLOBAL, head_hidden)
+        self.h2 = QHead(d_model + N_GLOBAL, head_hidden)
+        self.log_beta = nn.Parameter(torch.zeros(()), requires_grad=False)   # set by the SAC trainer
+
+    load_trunk = Critic.load_trunk
+
+    def features(self, tok: torch.Tensor, pad: torch.Tensor):
+        """-> per-token embeddings [E, S - 1, d] (global token dropped), global features [E, N_GLOBAL]."""
+        h = self.trunk(self.embed(tok), src_key_padding_mask=pad)
+        return self.norm(h[:, 1:]), tok[:, 0, OFF_G:OFF_G + N_GLOBAL]
+
+    def forward(self, tok: torch.Tensor, pad: torch.Tensor) -> torch.Tensor:
+        e, g = self.features(tok, pad)
+        return torch.minimum(self.h1(e, g), self.h2(e, g)) * self.log_beta.exp()
+
+
+def load_policy(ckpt: dict, device) -> nn.Module:
+    """Policy network from a train.py / rl.py (Scorer) or sac.py (SoftQ) checkpoint, in eval mode."""
+    cls = SoftQ if ckpt.get("kind") == "softq" else Scorer
+    kw = dict(ckpt["cfg"]["model"])
+    if cls is SoftQ:
+        kw["head_hidden"] = ckpt["cfg"]["sac"]["head_hidden"]
+    m = cls(d_max=10, **kw).to(device).eval()
+    m.load_state_dict(ckpt["model"])
+    return m

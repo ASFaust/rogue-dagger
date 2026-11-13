@@ -140,10 +140,9 @@ def main():
     else:
         model, h = None, (1.0, 1.0)
         if args.method == "rd":
-            from .model import Scorer
+            from .model import load_policy
             ck = torch.load(args.ckpt, map_location=args.device)
-            model = Scorer(d_max=10, **ck["cfg"]["model"]).to(args.device).eval()
-            model.load_state_dict(ck["model"])
+            model = load_policy(ck, args.device)
             tc = ck["cfg"]["train"]
             h = (args.h_start if args.h_start is not None else tc["h_start"],
                  args.h_end if args.h_end is not None else tc["h_end"])
