@@ -184,6 +184,9 @@ FT-PFN with a 95% bootstrap CI over tasks (positive = better than FT-PFN).
     τ=0.25) TaskSet **+0.057 [+0.023, +0.095]** (16/24), PD1 −0.003 [−0.007, −0.000], LCBench +0.002 [−0.004, +0.009];
     on the **full table** it is much worse everywhere (TaskSet 0.138). RL specialises to the shop sizes it trains on.
     It also drifts to starting many runs (20 % of steps, hits the 384-run cap). Synthetic eval (shop 32) 0.037 → 0.030.
+    Runs started per 1000-step benchmark episode (full table): TaskSet 749 vs 343 for `wide-v1`, LCBench 721 vs 273
+    (FT-PFN 205), PD1 230 vs 127 (FT-PFN 122). Pure RL learns to probe many configs for one step, which pays on the
+    prior (first points are informative there) and fails on the real tables: RL exploits the prior harder than the pairwise loss.
   - from scratch (`rl-scratch-v1`, τ=1, aux BCE), full table: slightly worse than `wide-v1` (TaskSet −0.022, PD1 −0.003,
     LCBench −0.003), after 40k env steps instead of 100k.
 * Horizon anneal (`wide-hanneal-v1`) is within noise of the full horizon on all three families.

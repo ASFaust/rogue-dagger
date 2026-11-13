@@ -24,7 +24,7 @@ checkpoint too. For the first rl.actor_warmup updates only the critic learns, so
 pretrained policy is not pushed around by an uncalibrated value baseline.
 
 Checkpoints keep train.py's format ({"model", "cfg"}), so evaluate.py runs them unchanged
-(deploy with --temperature rl.temperature).
+(deploy with --temperature = the checkpoint's train.temperature: rl.temperature, or the learned value).
 
     python -m roguedagger.rl --config configs/rl_wide.yaml --set rl.updates=20 wandb.mode=disabled
 """
@@ -52,6 +52,8 @@ DEFAULTS_RL = deep_update(copy.deepcopy(DEFAULTS), {
     "rl": {
         "init": None,            # pairwise-trained checkpoint (pretraining) or None = from scratch
         "temperature": 0.25,     # policy = softmax(scores / temperature); also the deploy temperature
+        "learn_temperature": False,  # train log(temperature) with the PPO loss (start: rl.temperature)
+        "temperature_lr": 1e-3,
         "reward": "log",         # log | linear (normalised regret)
         "log_eps": 1e-3,
         "gamma": 1.0, "lam": 0.95,
@@ -100,6 +102,18 @@ def pad_runs(x: torch.Tensor, off: int, r: int, r_max: int, fill) -> torch.Tenso
     return torch.cat([x[:, :off + r], torch.full(shape, fill, dtype=x.dtype, device=x.device), x[:, off + r:]], 1)
 
 
+class Temperature(torch.nn.Module):
+    """Policy temperature: fixed, or a learned log tau that only the PPO loss trains (the pairwise
+    aux loss does not depend on it, so it keeps the scores calibrated while RL sets the sharpness)."""
+
+    def __init__(self, tau: float, learn: bool):
+        super().__init__()
+        self.log_tau = torch.nn.Parameter(torch.tensor(math.log(tau)), requires_grad=learn)
+
+    def forward(self):
+        return self.log_tau.exp()
+
+
 def masked_logp(scores, valid, tau):
     """-> log pi over valid actions (−inf elsewhere), entropy [B]."""
     lp = torch.log_softmax((scores / tau).masked_fill(~valid, float("-inf")), -1)
@@ -118,9 +132,9 @@ def observe(env, h):
 
 
 @torch.no_grad()
-def collect(actor, critic, env, rc, h, amp):
+def collect(actor, critic, env, rc, h, amp, tau):
     """Roll the policy rc["rollout"] steps. -> dict of stacked [K, E, ...] tensors + episode stats."""
-    tau, steps, episodes = rc["temperature"], [], []
+    steps, episodes = [], []
     for _ in range(rc["rollout"]):
         H, r, tok, pad, valid = observe(env, h)
         v = env.values(H)
@@ -156,16 +170,17 @@ def collect(actor, critic, env, rc, h, amp):
     return batch, episodes
 
 
-def set_lr(opt, base, step, warmup, total):
-    """Linear warmup then cosine decay, in updates since this network started learning."""
+def set_lr(opt, step, warmup, total):
+    """Linear warmup then cosine decay, in updates since this network started learning.
+    Every param group keeps its own base LR ("base_lr"). -> LR of the first group."""
     f = min(1.0, (step + 1) / warmup) * 0.5 * (1 + math.cos(math.pi * min(step, total) / max(total, 1)))
     for g in opt.param_groups:
-        g["lr"] = base * f
-    return base * f
+        g["lr"] = g["base_lr"] * f
+    return opt.param_groups[0]["lr"]
 
 
-def ppo_update(actor, critic, opt_a, opt_c, batch, rc, amp, train_actor):
-    tau = rc["temperature"]
+def ppo_update(actor, critic, temp, opt_a, opt_c, batch, rc, amp, train_actor):
+    tau = temp().detach()
     assert (rc["rollout"] * batch["rew"].shape[1]) % rc["minibatch"] == 0, "rollout * n_envs must be a multiple of minibatch"
     adv, ret = gae(batch["rew"], batch["val"], batch["done"], batch["v_boot"], rc["gamma"], rc["lam"])
     K, E = adv.shape
@@ -204,7 +219,7 @@ def ppo_update(actor, critic, opt_a, opt_c, batch, rc, amp, train_actor):
             if train_actor:
                 with torch.autocast("cuda", dtype=torch.bfloat16, enabled=amp):
                     s = actor(t_j, p_j).float()
-                lp, ent = masked_logp(s, valid[j], tau)
+                lp, ent = masked_logp(s, valid[j], temp())
                 lp_a = lp.gather(1, a[j][:, None])[:, 0]
                 ratio = torch.exp(lp_a - logp_old[j])
                 A = adv_n[j]
@@ -213,7 +228,7 @@ def ppo_update(actor, critic, opt_a, opt_c, batch, rc, amp, train_actor):
                 loss = pg - rc["ent_coef"] * ent.mean() + rc["aux_coef"] * aux
                 opt_a.zero_grad(set_to_none=True)
                 loss.backward()
-                gn = torch.nn.utils.clip_grad_norm_(actor.parameters(), rc["grad_clip"])
+                gn = torch.nn.utils.clip_grad_norm_(list(actor.parameters()) + [temp.log_tau], rc["grad_clip"])
                 opt_a.step()
                 with torch.no_grad():
                     st.update(pg_loss=pg.detach(), aux_loss=aux.detach(), pair_acc=acc,
@@ -263,13 +278,18 @@ def main():
     run = wandb.init(project=cfg["wandb"]["project"], name=name, config=cfg, mode=cfg["wandb"]["mode"],
                      dir=str(out_dir), tags=["rl"])
 
-    opt_a = torch.optim.AdamW(actor.parameters(), lr=rc["actor_lr"], weight_decay=rc["wd"], betas=(0.9, 0.98))
-    opt_c = torch.optim.AdamW(critic.parameters(), lr=rc["critic_lr"], weight_decay=rc["wd"], betas=(0.9, 0.98))
+    temp = Temperature(rc["temperature"], rc["learn_temperature"]).to(device)
+    groups = [{"params": list(actor.parameters()), "base_lr": rc["actor_lr"]}]
+    if rc["learn_temperature"]:
+        groups.append({"params": [temp.log_tau], "base_lr": rc["temperature_lr"], "weight_decay": 0.0})
+    opt_a = torch.optim.AdamW(groups, lr=rc["actor_lr"], weight_decay=rc["wd"], betas=(0.9, 0.98))
+    opt_c = torch.optim.AdamW([{"params": list(critic.parameters()), "base_lr": rc["critic_lr"]}],
+                              lr=rc["critic_lr"], weight_decay=rc["wd"], betas=(0.9, 0.98))
 
     ecfg = env_config(cfg)
     ecfg_eval = copy.copy(ecfg)
     ecfg_eval.ref_pool = 0                         # same eval tasks (same RNG stream) as train.py's runs
-    eval_policy = lambda e: policy_step(actor, e, rc["temperature"], h=h, amp=amp)
+    eval_policy = lambda e: policy_step(actor, e, temp().item(), h=h, amp=amp)
     base = {}
     if rc["eval_every"]:
         for nm, fn in (("uniform", uniform_step), ("random_search", random_search_step)):
@@ -286,18 +306,18 @@ def main():
     for u in range(1, rc["updates"] + 1):
         actor.eval()
         critic.eval()
-        batch, episodes = collect(actor, critic, env, rc, h, amp)
+        batch, episodes = collect(actor, critic, env, rc, h, amp, temp().detach())
         eps_hist += episodes
         train_actor = u > rc["actor_warmup"]
-        lr_c = set_lr(opt_c, rc["critic_lr"], u - 1, rc["warmup"], rc["updates"])
-        lr_a = set_lr(opt_a, rc["actor_lr"], u - 1 - rc["actor_warmup"], rc["warmup"],
+        lr_c = set_lr(opt_c, u - 1, rc["warmup"], rc["updates"])
+        lr_a = set_lr(opt_a, u - 1 - rc["actor_warmup"], rc["warmup"],
                       rc["updates"] - rc["actor_warmup"]) if train_actor else 0.0
         actor.train()
         critic.train()
-        st = ppo_update(actor, critic, opt_a, opt_c, batch, rc, amp, train_actor)
+        st = ppo_update(actor, critic, temp, opt_a, opt_c, batch, rc, amp, train_actor)
         st.update({"reward_mean": batch["rew"].mean().item(), "entropy": batch["ent"].mean().item(),
                    "frac_new": batch["new"].float().mean().item(), "r_max": batch["r_max"],
-                   "lr_actor": lr_a, "lr_critic": lr_c})
+                   "lr_actor": lr_a, "lr_critic": lr_c, "temperature": temp().item()})
         hist.append(st)
 
         if u % rc["log_every"] == 0:
@@ -330,6 +350,7 @@ def main():
             print(f"EVAL u {u} " + json.dumps({k: round(v, 4) for k, v in log.items()}), flush=True)
 
         if u % rc["ckpt_every"] == 0 or u == rc["updates"]:
+            tc["temperature"] = temp().item()      # the deploy temperature (learned or fixed)
             ck = {"model": actor.state_dict(), "critic": critic.state_dict(), "cfg": cfg, "it": u,
                   "env_steps": u * steps_per_update}
             torch.save(ck, out_dir / "last.pt")

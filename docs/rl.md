@@ -86,6 +86,11 @@ Not adopted, and why:
 `T32=0.25 TFULL=0.25 sh scripts/eval_ckpts.sh FAMILY TAG:runs/<name>/last.pt`.
 The from-scratch config uses τ = 1, since a random scorer's scores have no scale yet.
 
+`rl.learn_temperature: true` trains log τ (start `rl.temperature`, LR `rl.temperature_lr`) with the PPO loss only.
+With the aux BCE on, the scores stay calibrated as pairwise probabilities, and a fixed τ makes RL fight the BCE over the
+score scale. A learned τ lets RL choose the policy's sharpness separately. The checkpoint stores the learned value
+as `train.temperature`, which is the τ to deploy at.
+
 ## Running
 
     python -m roguedagger.rl --config configs/rl_wide.yaml --set name=rl-wide-v1

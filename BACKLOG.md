@@ -33,7 +33,7 @@
 - [x] First runs: `rl-wide-v1` (PD1 +0.004 on full table, rest ≈), `rl-wide-noaux-v1` (shop 32 TaskSet +0.057, full table much worse), `rl-scratch-v1` (≈ slightly below wide-v1)
 - [~] RL on shops up to 256 (`rl_big.yaml`): `rl-big-noaux-v1` (from wide-v1), `rl-big-focus03-v1` (from wide-focus03-v1, aux)
 - [ ] Pure RL drifts to starting runs until the 384-run cap: check whether that is the reward (log, ε) or the shop-size specialisation
-- [ ] Learnable τ (log τ trained by the PPO loss only), proposed to the user
+- [~] Learnable τ (`rl.learn_temperature`, log τ trained by the PPO loss only): implemented, not run yet
 - [ ] Reward ablation: linear vs log; init from `wide-bigshop-v1`; shared vs separate critic if speed matters
 
 ## Open design questions (from PLAN.md)
