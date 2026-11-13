@@ -15,7 +15,7 @@
 - [x] LCBench (35 tasks, first 1000 configs)
 - [x] First comparison (`wide-v1` @100k, full-table shop): PD1 better than FT-PFN, TaskSet on par, LCBench behind (README, Results)
 - [x] Ablations at 100k: horizon anneal (no effect), future-only label (worse on LCBench, not better elsewhere)
-- [~] Pair weighting (`wide_focus`)
+- [x] Pair weighting (`wide_focus`): LCBench much better (on par with FT-PFN), PD1 worse, TaskSet same
 - [x] Pick the deploy τ without using the benchmarks (`scripts/synth_tau.py`: τ=0.25)
 - [~] Training τ = deploy τ (`wide_t025`): at τ=1 the scores flatten during training (entropy 1.3 -> 3.2),
   the policy starts ever more runs and the on-policy loss rises, while greedy keeps improving

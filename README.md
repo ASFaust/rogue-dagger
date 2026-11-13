@@ -144,6 +144,7 @@ FT-PFN with a 95% bootstrap CI over tasks (positive = better than FT-PFN).
 | R&D `wide-v1` @100k, full table, τ=0.25 | 0.062 (10/24; −0.008 [−0.026, +0.009]) | **0.0098** (14/28; +0.005 [+0.002, +0.010]) | 0.0162 (5/35; −0.009 [−0.013, −0.005]) |
 | R&D `wide-v1` @100k, full table, τ=0.15 | **0.051** (11/24; +0.003 [−0.012, +0.018]) | **0.0069** (16/28; +0.008 [+0.004, +0.013]) | 0.0181 (7/35; −0.011 [−0.016, −0.006]) |
 | R&D `wide-v1` @100k, full table, τ=0.1 | 0.051 (13/24; +0.003 [−0.010, +0.016]) | 0.0058 (17/28; +0.009 [+0.004, +0.015]) | 0.0218 |
+| R&D `wide-focus-v1` @100k (pair weighting), full table, τ=0.25 | 0.060 (11/24; −0.006 [−0.027, +0.015]) | 0.0169 (8/28; −0.002 [−0.008, +0.005]) | 0.0092 (10/35; −0.002 [−0.003, +0.000]) |
 | R&D `wide-hanneal-v1` @100k, full table, τ=0.25 | 0.059 | 0.0079 | 0.0165 |
 | R&D `wide-v1` @55k, full table, τ=0.25 | 0.170 | 0.0113 | – |
 
@@ -153,6 +154,9 @@ FT-PFN with a 95% bootstrap CI over tasks (positive = better than FT-PFN).
   (lower τ helps TaskSet and PD1, hurts LCBench). On held-out synthetic tasks (`scripts/synth_tau.py`, seed 777,
   T ∈ {20, 50, 200}, budget 1000) the best τ for a 512-item shop is 0.15–0.25 and for a 32-item shop 0.25–0.5.
   τ=0.25 is therefore the fair headline setting: **PD1 better than FT-PFN, TaskSet on par, LCBench behind.**
+* Pair weighting (`wide-focus-v1`, `pair_low: 0.1`: pairs where neither item beats the incumbent get 1/10
+  weight), paired against `wide-v1`: LCBench +0.007 [+0.004, +0.011] (26/35 tasks, now on par with FT-PFN),
+  TaskSet +0.002 [−0.008, +0.013], PD1 −0.007 [−0.012, −0.003] (worse). A trade-off, not a free gain.
 * Horizon anneal (`wide-hanneal-v1`) is within noise of the full horizon on all three families.
 * Going from 55k to 100k training steps cut TaskSet regret from 0.170 to 0.062, so the policy was undertrained.
 * Deployment knobs (TaskSet, early `wide-v1` snapshot): sampling beats greedy by about 3× in regret
