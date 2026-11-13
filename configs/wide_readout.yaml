@@ -1,0 +1,19 @@
+# wide.yaml without a global token in the trunk: score = MLP([final embedding, global features]).
+# The trunk output is horizon-free, so each step is read out at 4 horizons (the reported one plus
+# 3 log-uniform in [1, remaining]) and trained on all 4 label sets. Training τ stays 1 so the
+# comparison with wide-v1 changes only the architecture + multi-horizon labels.
+env:
+  shop_mode: uniform
+  n_range: [4, 64]
+  T_range: [4, 300]
+  budget_full_range: [0.5, 200.0]
+  B_range: [20, 1200]
+  p_cap: 0.5
+model:
+  readout: mlp
+train:
+  n_envs: 256
+  iters: 100000
+  n_horizons: 4
+  h_start: 1.0
+  h_end: 1.0

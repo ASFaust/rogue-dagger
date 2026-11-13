@@ -46,6 +46,12 @@ remaining`, which can under-report the true remaining budget. These labels are
 pseudo-labels: they assume all of `H` goes to one item, which almost never
 happens. The temperature `τ` and `f` are the knobs to tune.
 
+**Readout.** By default the global token goes through the trunk and a small head maps each
+final embedding to a score. With `model.readout: mlp` the trunk sees only runs and
+suggestions, and the score is `MLP([embedding, global features])`. The trunk output then
+doesn't depend on the horizon, so `train.n_horizons: K` reads each state out at K horizons (the
+reported one plus K−1 log-uniform in [1, remaining]) and trains on all K exact label sets.
+
 **Tokens.** One global token carries the budget, elapsed, remaining and
 horizon, normalised by the steps per full training and by the budget. There is
 one token per run and one per suggestion. Each has type flags, the

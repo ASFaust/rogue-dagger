@@ -26,6 +26,15 @@ import torch
 
 N_LAST, N_RESAMPLE = 10, 16
 OFF_G, OFF_R, OFF_C, OFF_H = 3, 14, 19, 59
+N_GLOBAL = OFF_R - OFF_G   # global features (horizon at OFF_G + 2 and OFF_G + 4)
+
+
+def global_at_horizons(tok: torch.Tensor, Hs: torch.Tensor, B: torch.Tensor, T: torch.Tensor) -> torch.Tensor:
+    """Global features of the global token, re-set for K horizons. Hs [E, K] -> [E, K, N_GLOBAL]."""
+    g = tok[:, 0, OFF_G:OFF_G + N_GLOBAL][:, None].repeat(1, Hs.shape[1], 1)
+    g[..., 2] = Hs.float() / B.float()[:, None]
+    g[..., 4] = torch.log1p(Hs.float() / T.float()[:, None])
+    return g
 
 
 def feature_dim(d_max: int) -> int:

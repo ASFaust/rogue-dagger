@@ -25,18 +25,18 @@ import torch
 import yaml
 
 from .env import EnvConfig, ShopEnv
-from .features import encode, from_env
+from .features import encode, from_env, global_at_horizons
 from .model import Scorer, pairwise_loss, sample_action
 
 DEFAULTS = {
     "seed": 0,
     "name": None,
     "env": {},                       # EnvConfig overrides
-    "model": {"d_model": 256, "n_layers": 6, "n_heads": 8, "d_ff": 1024},
+    "model": {"d_model": 256, "n_layers": 6, "n_heads": 8, "d_ff": 1024, "readout": "token"},
     "train": {
         "n_envs": 256, "iters": 100_000, "lr": 3e-4, "wd": 0.01, "warmup": 1000,
         "grad_clip": 1.0, "temperature": 1.0, "h_start": 1.0, "h_end": 1.0,
-        "amp": True, "label_past": True, "pair_low": 1.0, "log_every": 50, "ckpt_every": 5000, "eval_every": 5000,
+        "amp": True, "label_past": True, "pair_low": 1.0, "n_horizons": 1, "log_every": 50, "ckpt_every": 5000, "eval_every": 5000,
     },
     "eval": {"n_envs": 128, "seed": 1234, "T": 50, "B": 1000, "n": 32, "cap": True,
              "temperature": 1.0},
@@ -180,17 +180,37 @@ def main():
         tok, pad = encode(obs, env.d_max)
         ch = env.choosable()
         valid = torch.cat([ch[:, :r_cur], ch[:, env.R:]], 1)
-        vals = env.values(H, include_past=tc["label_past"])
-        vals = torch.cat([vals[:, :r_cur], vals[:, env.R:]], 1)
-        with torch.autocast("cuda", dtype=torch.bfloat16, enabled=tc["amp"]):
-            s = model(tok, pad)
-        pw = None
-        if tc["pair_low"] < 1.0:
+        def labels(Hk):
+            v = env.values(Hk, include_past=tc["label_past"])
+            return torch.cat([v[:, :r_cur], v[:, env.R:]], 1)
+
+        def weights(v):
+            if tc["pair_low"] >= 1.0:
+                return None
             # contenders: items whose label value beats the current incumbent. Pairs with at
             # least one contender keep weight 1, pairs of two non-contenders get pair_low.
-            cont = vals < env.best[:, None] - 1e-6
-            pw = torch.where(cont[:, :, None] | cont[:, None, :], 1.0, tc["pair_low"])
-        loss, acc, npair = pairwise_loss(s.float(), vals, valid, weight=pw)
+            cont = v < env.best[:, None] - 1e-6
+            return torch.where(cont[:, :, None] | cont[:, None, :], 1.0, tc["pair_low"])
+
+        K = tc["n_horizons"]
+        if K > 1:
+            # horizon 0 = the reported H (the policy acts on it); the others are log-uniform in
+            # [1, remaining budget]. Labels are exact at any horizon; the trunk runs once.
+            rem = (env.B - env.consumed).clamp(min=1).float()
+            u = torch.rand(env.E, K - 1, device=device)
+            Hs = torch.cat([H[:, None], rem[:, None].pow(u).round().long().clamp(min=1)], 1)
+            with torch.autocast("cuda", dtype=torch.bfloat16, enabled=tc["amp"]):
+                sk = model(tok, pad, glob=global_at_horizons(tok, Hs, env.B, env.T)).float()
+            losses, accs, nps = zip(*[pairwise_loss(sk[:, k], v, valid, weight=weights(v))
+                                      for k in range(K) for v in [labels(Hs[:, k])]])
+            loss = torch.stack(losses).mean()
+            acc, npair = accs[0], nps[0]          # logged at the reported horizon
+            s = sk[:, 0]
+        else:
+            vals = labels(H)
+            with torch.autocast("cuda", dtype=torch.bfloat16, enabled=tc["amp"]):
+                s = model(tok, pad)
+            loss, acc, npair = pairwise_loss(s.float(), vals, valid, weight=weights(vals))
         opt.zero_grad(set_to_none=True)
         loss.backward()
         gn = torch.nn.utils.clip_grad_norm_(model.parameters(), tc["grad_clip"])

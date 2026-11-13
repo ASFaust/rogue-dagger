@@ -16,7 +16,10 @@
 - [x] First comparison (`wide-v1` @100k, full-table shop): PD1 better than FT-PFN, TaskSet on par, LCBench behind (README, Results)
 - [x] Ablations at 100k: horizon anneal (no effect), future-only label (worse on LCBench, not better elsewhere)
 - [~] Pair weighting (`wide_focus`)
-- [ ] Pick the deploy τ without using the benchmarks (synthetic prior with a ~1000-item shop)
+- [x] Pick the deploy τ without using the benchmarks (`scripts/synth_tau.py`: τ=0.25)
+- [~] Training τ = deploy τ (`wide_t025`): at τ=1 the scores flatten during training (entropy 1.3 -> 3.2),
+  the policy starts ever more runs and the on-policy loss rises, while greedy keeps improving
+- [~] MLP readout without global token + 4 horizons per step (`wide_readout`, `model.readout: mlp`, `train.n_horizons`)
 - [~] Scale: 300k iterations (`wide_long`); train-time shops up to 256 (`wide_bigshop`)
 - [ ] Close the LCBench gap (0.016 vs 0.008): early regret (@100) is about 2x FT-PFN's
 
