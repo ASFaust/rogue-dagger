@@ -1,0 +1,14 @@
+# sac_frozen.yaml with shops up to 256 items (closer to the full-table deployment). Larger states -> bigger pool.
+env:
+  shop_mode: uniform
+  n_range: [4, 256]
+  T_range: [4, 300]
+  budget_full_range: [0.5, 200.0]
+  B_range: [20, 1200]
+  p_cap: 0.5
+  ref_pool: 512
+train:
+  n_envs: 128
+sac:
+  init: runs/wide-v1/last.pt
+  pool_tokens_per_state: 256
