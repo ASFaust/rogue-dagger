@@ -33,7 +33,7 @@
 - [x] First runs: `rl-wide-v1` (PD1 +0.004 on full table, rest ≈), `rl-wide-noaux-v1` (shop 32 TaskSet +0.057, full table much worse), `rl-scratch-v1` (≈ slightly below wide-v1)
 - [x] RL on shops up to 256 (`rl_big.yaml`): `rl-big-noaux-v1` (TaskSet collapse, 0.210), `rl-big-focus03-v1` (loses focus03's PD1 gain); see README
 - [x] Discrete SAC, frozen trunk (`sac-frozen-wide-v1`, `sac-frozen-big-v1`): best synthetic, worst benchmarks (TaskSet 0.27); see README
-- [ ] `wide-focus03-big-v1` (pairwise, shops 4..256): trained, benchmark eval pending (GPU access lost 2026-11-14)
+- [x] `wide-focus03-big-v1` (pairwise, shops 4..256): LCBench +0.005, PD1 −0.011 vs wide-v1; big shops trade PD1 for LCBench
 - [ ] Ablations to separate SAC vs PPO: PPO on frozen trunk; PPO with entropy/perplexity target (low priority given transfer results)
 - [ ] Pure RL drifts to starting runs until the 384-run cap: check whether that is the reward (log, ε) or the shop-size specialisation
 - [~] Learnable τ (`rl.learn_temperature`, log τ trained by the PPO loss only): implemented, not run yet

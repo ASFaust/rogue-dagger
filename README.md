@@ -177,6 +177,9 @@ FT-PFN with a 95% bootstrap CI over tasks (positive = better than FT-PFN).
     so the scorer sees fewer, harder pairs (≈4.5k vs 12k per batch).
 * **Pair weighting 0.3** (`wide-focus03-v1`) vs `wide-v1`: PD1 +0.004 [+0.002, +0.006] (23/28), LCBench +0.002
   [−0.001, +0.006], TaskSet −0.002 [−0.012, +0.007]. Weight 0.1 traded PD1 for LCBench, 0.3 keeps the PD1 gain.
+* **Pair weighting 0.3 + shops 4..256** (`wide-focus03-big-v1`), full table vs `wide-v1`: LCBench **0.0116, +0.005
+  [+0.002, +0.008] (22/35)**, PD1 0.0205, −0.011 [−0.016, −0.006] (8/28; −0.015 vs `wide-focus03-v1`), TaskSet 0.074,
+  −0.012 [−0.026, +0.001]. Same pattern as `wide-bigshop`: big shops help LCBench and hurt PD1; focus03 doesn't change that.
 * **RL extension** (docs/rl.md; PPO from a pairwise checkpoint, 40k env steps), paired against `wide-v1` at the same deploy setting:
   - with the pairwise aux loss (`rl-wide-v1`), full table: PD1 +0.004 [+0.002, +0.007] (22/28), TaskSet −0.008
     [−0.022, +0.008], LCBench +0.001 [−0.002, +0.004]. The synthetic eval did not move (0.037 → 0.038).
