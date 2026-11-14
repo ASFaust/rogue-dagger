@@ -32,7 +32,10 @@
 - [~] `wide-focus03-longT-v1`: T_range 4..1500 (curve length alone)
 - [~] `wide-focus03-mid-v1`: shops 4..128
 - [~] Seed noise: `wide-focus03-s1`, `wide-s1` (seed 1 replicates; nothing measured so far is checked against seed variance)
-- [~] Deploy-time shop size on PD1 (`--n-shop 64/128`) for wide-focus03 and wide-focus03-big: train/deploy shop mismatch or learned behaviour?
+- [x] Deploy-time shop size on PD1 (`--n-shop 64/128`, τ 0.25): learned behaviour, not a deploy mismatch. `wide-focus03-big-v1`
+  is 0.0205 at shop 64, 128 and the full table alike; `wide-focus03-v1` is 0.0077 / 0.0070 / 0.0059. At shop 64 the big
+  model starts as many runs as focus03 does on the full table (111 vs 110) and is still 3x worse, so it's not the run
+  count either: it picks worse. It's worse on the short-curve PD1 tasks too (0.0083 vs 0.0015), just less visibly.
 
 ## RL extension (docs/rl.md) — SHELVED 2026-11-14, reasons in docs/rl.md
 - [x] PPO + GAE trainer (`roguedagger/rl.py`) starting from a pairwise checkpoint; separate critic initialised from its trunk; critic-only warmup; pairwise BCE as aux loss
