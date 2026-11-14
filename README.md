@@ -190,6 +190,20 @@ FT-PFN with a 95% bootstrap CI over tasks (positive = better than FT-PFN).
     Runs started per 1000-step benchmark episode (full table): TaskSet 749 vs 343 for `wide-v1`, LCBench 721 vs 273
     (FT-PFN 205), PD1 230 vs 127 (FT-PFN 122). Pure RL learns to probe many configs for one step, which pays on the
     prior (first points are informative there) and fails on the real tables: RL exploits the prior harder than the pairwise loss.
+  - big shops (`rl_big.yaml`, shops 4..256, 24k env steps), full table vs `wide-v1`:
+    pure RL (`rl-big-noaux-v1`): TaskSet **0.210, −0.148 [−0.201, −0.097] (4/24)**, PD1 0.0098 (±0), LCBench 0.0135
+    (+0.003 [−0.001, +0.007]). From `wide-focus03-v1` with aux (`rl-big-focus03-v1`): TaskSet 0.059 (+0.003, n.s.),
+    PD1 0.0112, LCBench 0.0189 (−0.003 [−0.005, −0.001]). Against its own init `wide-focus03-v1` it loses the PD1 gain
+    (−0.005 [−0.014, −0.000], 7/28) and LCBench (−0.005). Synthetic eval 0.027–0.046, far better than `wide-v1` (0.065),
+    yet no benchmark gain.
+  - **Discrete SAC** (`sac.py`, automl-exam sac_frozen3 recipe, frozen `wide-v1` trunk, 50k env steps, deploy at
+    β from the model): best synthetic eval of any run (`sac-frozen-wide-v1` 0.029, `sac-frozen-big-v1` 0.034), worst
+    benchmarks. Full table TaskSet 0.271 / 0.275, PD1 0.041 / 0.026, LCBench 0.049 / 0.038 (wide / big); `sac-frozen-big-v1`
+    vs `wide-v1`: TaskSet −0.213 (1/24), PD1 −0.016, LCBench −0.021, all significant. Shop 32 is just as bad.
+    SAC starts few runs (≈100 per episode on every family vs 127–343 for `wide-v1`) and runs them long: on the prior
+    that pays, on the real tables it doesn't.
+  - Takeaway: every RL variant that improves the synthetic eval most transfers worst. RL exploits the prior; the
+    pairwise loss's proxy label is a useful regulariser. The synthetic eval is not a model-selection signal for RL.
   - from scratch (`rl-scratch-v1`, τ=1, aux BCE), full table: slightly worse than `wide-v1` (TaskSet −0.022, PD1 −0.003,
     LCBench −0.003), after 40k env steps instead of 100k.
 * Horizon anneal (`wide-hanneal-v1`) is within noise of the full horizon on all three families.
