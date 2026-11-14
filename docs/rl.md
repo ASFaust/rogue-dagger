@@ -5,6 +5,29 @@ scorer and evaluation. The policy is still softmax(scores / τ) over [runs | sho
 checkpoint deploys exactly like a pairwise one. The prior RL attempt (automl-exam: implicit
 discrete SAC with replay) is a reference only.
 
+## Status: shelved (2026-11-14)
+
+RL is on hold. The pairwise (DAgger-like) training is the main line again. The code stays in the repo and the tests
+still pass, but nothing new is trained with it. Reasons, all from the results recorded in README:
+
+1. **No RL run beats its pairwise starting point on the benchmarks.** The best case, PPO with the aux loss
+   (`rl-wide-v1`), gains on PD1 (+0.004) and is level elsewhere. That is about what pair weighting 0.3 gets
+   without RL. Pure RL and big-shop RL collapse on TaskSet (full table 0.21 vs 0.062); PPO from `wide-focus03-v1`
+   loses that model's PD1 gain.
+2. **RL exploits the prior.** The runs that improve the synthetic eval most transfer worst. Discrete SAC has the
+   best synthetic regret of any run (0.029 vs 0.065 for `wide-v1`) and the worst benchmarks (TaskSet 0.27, all three
+   families significantly worse). RL optimises final regret on prior tasks directly, and finds behaviour the real
+   tables punish: SAC starts ≈100 runs per episode and runs them long; pure PPO probes 700+ configs for one step each.
+   The pairwise loss's proxy label (which item has the best loss by len+H) acts as a regulariser against this.
+3. **No model-selection signal.** With the synthetic eval anti-correlated with transfer, the only way to select RL
+   checkpoints or hyperparameters would be the benchmarks themselves, which is test-set tuning.
+4. **The pairwise variants have open, cheaper questions.** Each pairwise variant wins one family and loses
+   another (shop size and pair weighting trade PD1 against LCBench), and a full pairwise run costs ~3.5 h vs 4.5 h
+   for RL, with no extra moving parts.
+
+Worth revisiting only if the prior itself gets closer to the benchmarks, or with a selection signal that predicts
+transfer (e.g. a held-out set of real tasks, which this project doesn't have).
+
 ## Design
 
 ### 1. Pretraining = the existing pairwise stage

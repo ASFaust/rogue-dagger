@@ -1,0 +1,12 @@
+# wide-focus03 with shops 4..128: between 4..64 (best PD1) and 4..256 (best LCBench, PD1 −0.015).
+env:
+  shop_mode: uniform
+  n_range: [4, 128]
+  T_range: [4, 300]
+  budget_full_range: [0.5, 200.0]
+  B_range: [20, 1200]
+  p_cap: 0.5
+train:
+  n_envs: 256
+  iters: 100000
+  pair_low: 0.3

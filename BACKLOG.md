@@ -23,10 +23,18 @@
 - [x] Scale: 300k iterations (`wide_long`) worse everywhere; train shops up to 256 (`wide_bigshop`) better on TaskSet + LCBench, worse on PD1
 - [x] MLP readout (`wide_readout`): best TaskSet (0.047), PD1 ≈, LCBench worse (0.024)
 - [x] Pair weighting 0.3 (`wide_focus03`): PD1 0.0059 (better than wide-v1 and FT-PFN), LCBench 0.014, TaskSet ≈
-- [~] Pair weighting 0.3 + train shops to 256 (`wide_focus03_big`): training
+- [x] Pair weighting 0.3 + train shops to 256 (`wide_focus03_big`): LCBench +0.005, PD1 −0.011 vs wide-v1
 - [ ] Close the LCBench gap (0.016 vs 0.008): early regret (@100) is about 2x FT-PFN's
 
-## RL extension (docs/rl.md)
+## Pairwise: why do the families disagree? (2026-11-14)
+- [x] PD1 loss of big-shop training is concentrated on long-curve, low-budget tasks: corr(log budget/T, delta) = 0.82
+  (translate T=1414/706, imagenet T=250/501). PD1 T goes up to 1414; training `T_range` stops at 300
+- [~] `wide-focus03-longT-v1`: T_range 4..1500 (curve length alone)
+- [~] `wide-focus03-mid-v1`: shops 4..128
+- [~] Seed noise: `wide-focus03-s1`, `wide-s1` (seed 1 replicates; nothing measured so far is checked against seed variance)
+- [~] Deploy-time shop size on PD1 (`--n-shop 64/128`) for wide-focus03 and wide-focus03-big: train/deploy shop mismatch or learned behaviour?
+
+## RL extension (docs/rl.md) — SHELVED 2026-11-14, reasons in docs/rl.md
 - [x] PPO + GAE trainer (`roguedagger/rl.py`) starting from a pairwise checkpoint; separate critic initialised from its trunk; critic-only warmup; pairwise BCE as aux loss
 - [x] Reward: per-step decrease of log normalised regret (pool of 512 random configs per task), always >= 0
 - [x] fp32 heads + recomputed old log-probs (bf16 noise otherwise clips ~15 % of PPO ratios at τ=0.25)

@@ -180,6 +180,8 @@ FT-PFN with a 95% bootstrap CI over tasks (positive = better than FT-PFN).
 * **Pair weighting 0.3 + shops 4..256** (`wide-focus03-big-v1`), full table vs `wide-v1`: LCBench **0.0116, +0.005
   [+0.002, +0.008] (22/35)**, PD1 0.0205, −0.011 [−0.016, −0.006] (8/28; −0.015 vs `wide-focus03-v1`), TaskSet 0.074,
   −0.012 [−0.026, +0.001]. Same pattern as `wide-bigshop`: big shops help LCBench and hurt PD1; focus03 doesn't change that.
+* **RL is shelved** (2026-11-14; reasons in docs/rl.md, "Status"): no RL run beats its pairwise starting point on
+  the benchmarks, and the runs that improve the synthetic eval most transfer worst (RL exploits the prior). Results below.
 * **RL extension** (docs/rl.md; PPO from a pairwise checkpoint, 40k env steps), paired against `wide-v1` at the same deploy setting:
   - with the pairwise aux loss (`rl-wide-v1`), full table: PD1 +0.004 [+0.002, +0.007] (22/28), TaskSet −0.008
     [−0.022, +0.008], LCBench +0.001 [−0.002, +0.004]. The synthetic eval did not move (0.037 → 0.038).
