@@ -36,7 +36,8 @@ DEFAULTS = {
     "train": {
         "n_envs": 256, "iters": 100_000, "lr": 3e-4, "wd": 0.01, "warmup": 1000,
         "grad_clip": 1.0, "temperature": 1.0, "temperature_range": None, "h_start": 1.0, "h_end": 1.0,
-        "amp": True, "label_past": True, "pair_low": 1.0, "n_horizons": 1, "log_every": 50, "ckpt_every": 5000, "eval_every": 5000,
+        "amp": True, "label_past": True, "pair_low": 1.0, "n_horizons": 1,
+        "cross_weight": 0.0, "cross_pairs": 64, "log_every": 50, "ckpt_every": 5000, "eval_every": 5000,
     },
     "eval": {"n_envs": 128, "seed": 1234, "T": 50, "B": 1000, "n": 32, "cap": True,
              "temperature": 1.0},
@@ -80,6 +81,37 @@ def to_env_action(a, r_cur, R_max):
 
 
 # ---------------------------------------------------------------------------- policies
+def crossing_pairs(env, r_cur, valid, P):
+    """Sample P item pairs per env and find where their labels swap order (docs/future-ideas/crossing-horizons.md).
+
+    Item index space is [runs :r_cur | shop], as in the scores. A pair's label at horizon h is the best loss up to
+    len + h (cut at the cap); it crosses between h and h + 1 when the sign of v_a(h) - v_b(h) flips (strictly; ties
+    on both sides don't count). One crossing per pair is drawn at random if there are several, h* = h + 0.5.
+    -> ia, ib [E, P] item indices, hstar [E, P] float, ok [E, P] (pair has a crossing within the remaining budget).
+    """
+    E, dev, L = env.E, env.dev, env.L
+    w = valid.float() + 1e-9 * (~valid).float()
+    idx = torch.multinomial(w, 2 * P, replacement=True)                    # [E, 2P]
+    shop = idx >= r_cur
+    ar = torch.arange(E, device=dev)[:, None]
+    cm = torch.where(shop[..., None], env.shop_cmin[ar, (idx - r_cur).clamp(min=0)],
+                     env.run_cmin[ar, idx.clamp(max=max(r_cur - 1, 0))] if r_cur > 0 else env.shop_cmin[ar, 0 * idx])
+    ln = torch.where(shop, 0, env.run_len[ar, idx.clamp(max=max(r_cur - 1, 0))] if r_cur > 0 else 0 * idx)
+    rem = (env.B - env.consumed).clamp(min=1)
+    Hm = int(rem.max().clamp(max=L - 1))
+    h = torch.arange(1, Hm + 1, device=dev)
+    cap_lim = torch.where(env.cap, env.T, torch.full_like(env.T, L))
+    lim = torch.minimum(ln[..., None] + h, cap_lim[:, None, None]).clamp(1, L)  # [E, 2P, Hm]
+    v = cm.gather(2, lim - 1)
+    d = v[:, :P] - v[:, P:]                                                 # [E, P, Hm]
+    sg = torch.sign(torch.where(d.abs() > 1e-6, d, torch.zeros_like(d)))
+    flip = (sg[..., :-1] * sg[..., 1:] < 0) & (h[None, None, 1:] <= rem[:, None, None])
+    ok = flip.any(-1) & (idx[:, :P] != idx[:, P:]) & valid.gather(1, idx[:, :P]) & valid.gather(1, idx[:, P:])
+    key = torch.where(flip, torch.rand(flip.shape, device=dev), torch.full(flip.shape, -1.0, device=dev))
+    hstar = key.argmax(-1).float() + 1.5                                    # flip between h and h + 1
+    return idx[:, :P], idx[:, P:], hstar, ok
+
+
 def policy_step(model, env, temperature=1.0, greedy=False, h=(1.0, 1.0), amp=True):
     H = env.horizon(*h)
     obs = from_env(env, H)
@@ -177,7 +209,7 @@ def main():
         lo, hi = map(float, tc["temperature_range"])
         draw_tau = lambda n: torch.exp(math.log(lo) + torch.rand(n, device=device) * (math.log(hi) - math.log(lo)))
         tau = draw_tau(tc["n_envs"])
-    ep_stats, t0, hist = [], time.time(), []
+    ep_stats, t0, hist, chist = [], time.time(), [], []
     h = (tc["h_start"], tc["h_end"])
     for it in range(1, tc["iters"] + 1):
         model.train()
@@ -207,10 +239,25 @@ def main():
             u = torch.rand(env.E, K - 1, device=device)
             Hs = torch.cat([H[:, None], rem[:, None].pow(u).round().long().clamp(min=1)], 1)
             with torch.autocast("cuda", dtype=torch.bfloat16, enabled=tc["amp"]):
-                sk = model(tok, pad, glob=global_at_horizons(tok, Hs, env.B, env.T)).float()
+                hi = model.items(tok, pad)
+                sk = model.read(hi, global_at_horizons(tok, Hs, env.B, env.T)).float()
             losses, accs, nps = zip(*[pairwise_loss(sk[:, k], v, valid, weight=weights(v))
                                       for k in range(K) for v in [labels(Hs[:, k])]])
             loss = torch.stack(losses).mean()
+            if tc["cross_weight"] > 0:
+                # tie target at each sampled pair's crossing horizon h*: BCE with label 0.5 (zero at s_a = s_b)
+                ia, ib, hs, ok = crossing_pairs(env, r_cur, valid, tc["cross_pairs"])
+                he = torch.stack([hi.gather(1, ia[..., None].expand(-1, -1, hi.shape[-1])),
+                                  hi.gather(1, ib[..., None].expand(-1, -1, hi.shape[-1]))], 2)
+                with torch.autocast("cuda", dtype=torch.bfloat16, enabled=tc["amp"]):
+                    sp = model.read(he, global_at_horizons(tok, hs, env.B, env.T)).float()   # [E, P, 2]
+                z = sp[..., 0] - sp[..., 1]
+                tie = -0.5 * (torch.nn.functional.logsigmoid(z) + torch.nn.functional.logsigmoid(-z)) - math.log(2)
+                okf = ok.float()
+                cross_loss = (tie * okf).sum() / okf.sum().clamp(min=1)
+                loss = loss + tc["cross_weight"] * cross_loss
+                cross_stats = torch.stack([cross_loss.detach(), okf.mean(), z.detach().abs()[ok].mean()
+                                           if ok.any() else z.new_zeros(())])
             acc, npair = accs[0], nps[0]          # logged at the reported horizon
             s = sk[:, 0]
         else:
@@ -233,6 +280,8 @@ def main():
                 tau[de] = draw_tau(len(de))
         if out["done"].any():
             ep_stats.append({k: out[k].float().cpu() for k in ("final_best", "oracle", "n_runs", "n_new", "B", "T", "n")})
+        if tc["cross_weight"] > 0 and K > 1:
+            chist.append(cross_stats)
         hist.append(torch.stack([loss.detach(), acc, npair, ent.mean(), is_new.float().mean(), gn,
                                  torch.tensor(float(r_cur), device=device)]))
 
@@ -244,6 +293,10 @@ def main():
             log = {"train/loss": hm[0], "train/pair_acc": hm[1], "train/pairs": hm[2], "train/entropy": hm[3],
                    "train/frac_new": hm[4], "train/grad_norm": hm[5], "train/r_cur": hm[6],
                    "train/lr": sched.get_last_lr()[0], "perf/it_per_s": tc["log_every"] / dt}
+            if chist:
+                cm_ = torch.stack(chist).mean(0).tolist()
+                chist = []
+                log.update({"train/cross_loss": cm_[0], "train/cross_frac": cm_[1], "train/cross_absdiff": cm_[2]})
             if ep_stats:
                 cat = {k: torch.cat([e[k] for e in ep_stats]) for k in ep_stats[0]}
                 log.update({"episode/final_best": cat["final_best"].mean().item(),

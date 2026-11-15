@@ -47,15 +47,26 @@ class Scorer(nn.Module):
         if self.readout == "token":
             h = self.trunk(self.embed(tok), src_key_padding_mask=pad)
             return _fp32(self.head, self.norm(h[:, 1:])).squeeze(-1)
-        h = self.norm(self.trunk(self.embed(tok[:, 1:]), src_key_padding_mask=pad[:, 1:]))   # [E, M, d]
+        h = self.items(tok, pad)
         single = glob is None
         if single:
             glob = tok[:, :1, OFF_G:OFF_G + N_GLOBAL]
-        E, K, M = h.shape[0], glob.shape[1], h.shape[1]
-        x = torch.cat([h[:, None].expand(E, K, M, h.shape[-1]),
-                       glob[:, :, None].to(h.dtype).expand(E, K, M, glob.shape[-1])], -1)
-        s = _fp32(self.head, x).squeeze(-1)
+        s = self.read(h, glob)
         return s[:, 0] if single else s
+
+    def items(self, tok: torch.Tensor, pad: torch.Tensor) -> torch.Tensor:
+        """readout "mlp": horizon-free item embeddings [E, M, d] (global token dropped)."""
+        return self.norm(self.trunk(self.embed(tok[:, 1:]), src_key_padding_mask=pad[:, 1:]))
+
+    def read(self, h: torch.Tensor, glob: torch.Tensor) -> torch.Tensor:
+        """readout "mlp": h [E, M, d] at K global states glob [E, K, G] -> scores [E, K, M], fp32.
+        Also h [E, P, J, d] with one global state per row glob [E, P, G] -> [E, P, J] (per-pair horizons)."""
+        if h.dim() == 3:
+            E, K, M = h.shape[0], glob.shape[1], h.shape[1]
+            h, glob = h[:, None].expand(E, K, M, h.shape[-1]), glob[:, :, None].expand(E, K, M, glob.shape[-1])
+        else:
+            glob = glob[:, :, None].expand(*h.shape[:3], glob.shape[-1])
+        return _fp32(self.head, torch.cat([h, glob.to(h.dtype)], -1)).squeeze(-1)
 
 
 def pairwise_loss(scores: torch.Tensor, values: torch.Tensor, valid: torch.Tensor, tol: float = 1e-6,

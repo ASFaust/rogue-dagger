@@ -95,3 +95,29 @@ def test_future_only_values():
             hi = min(lo + int(H[e]), lim)
             if hi > lo:
                 assert torch.isclose(v[e, r], env.run_curve[e, r, lo:hi].min())
+
+
+@pytest.mark.parametrize("p_cap", [0.0, 1.0])
+def test_crossing_pairs_flip_labels(p_cap):
+    from roguedagger.train import crossing_pairs
+    env = ShopEnv(8, EnvConfig(B_range=(40, 120), T_range=(5, 20), p_cap=p_cap), DEV, seed=7)
+    g = torch.Generator(device=DEV).manual_seed(0)
+    for _ in range(15):    # grow a few runs
+        ch = env.choosable()
+        env.step(torch.multinomial(ch.float(), 1, generator=g)[:, 0])
+    r = int(env.n_runs.max())
+    ch = env.choosable()
+    valid = torch.cat([ch[:, :r], ch[:, env.R:]], 1)
+    torch.manual_seed(0)
+    ia, ib, hs, ok = crossing_pairs(env, r, valid, 32)
+    assert ok.any()
+    rem = env.B - env.consumed
+    for e, p in ok.nonzero().tolist():
+        h0 = int(hs[e, p] - 0.5)
+        assert 1 <= h0 and h0 + 1 <= rem[e]
+        sides = []
+        for h in (h0, h0 + 1):
+            v = env.values(torch.full((env.E,), h, device=DEV))
+            v = torch.cat([v[:, :r], v[:, env.R:]], 1)[e]
+            sides.append(torch.sign(v[ia[e, p]] - v[ib[e, p]]).item())
+        assert sides[0] * sides[1] < 0

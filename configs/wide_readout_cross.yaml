@@ -1,0 +1,20 @@
+# wide_readout + the crossing tie term (docs/future-ideas/crossing-horizons.md, variant 1). One change vs
+# wide-readout-v1: per step, 64 random item pairs per env; where a pair's labels swap order between horizons h and
+# h + 1, the readout at h* = h + 0.5 is trained towards a tie (BCE with label 0.5), weight 1.
+env:
+  shop_mode: uniform
+  n_range: [4, 64]
+  T_range: [4, 300]
+  budget_full_range: [0.5, 200.0]
+  B_range: [20, 1200]
+  p_cap: 0.5
+model:
+  readout: mlp
+train:
+  n_envs: 256
+  iters: 100000
+  n_horizons: 4
+  h_start: 1.0
+  h_end: 1.0
+  cross_weight: 1.0
+  cross_pairs: 64
