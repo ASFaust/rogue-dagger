@@ -26,7 +26,7 @@ import yaml
 
 from .env import EnvConfig, ShopEnv
 from .features import encode, from_env, global_at_horizons
-from .model import Scorer, pairwise_loss, sample_action
+from .model import Scorer, pairwise_loss, sample_action, thompson_action
 
 DEFAULTS = {
     "seed": 0,
@@ -37,7 +37,7 @@ DEFAULTS = {
         "n_envs": 256, "iters": 100_000, "lr": 3e-4, "wd": 0.01, "warmup": 1000,
         "grad_clip": 1.0, "temperature": 1.0, "temperature_range": None, "h_start": 1.0, "h_end": 1.0,
         "amp": True, "label_past": True, "pair_low": 1.0, "n_horizons": 1,
-        "cross_weight": 0.0, "cross_pairs": 64, "log_every": 50, "ckpt_every": 5000, "eval_every": 5000,
+        "cross_weight": 0.0, "cross_pairs": 64, "cross_mode": "tie", "log_every": 50, "ckpt_every": 5000, "eval_every": 5000,
     },
     "eval": {"n_envs": 128, "seed": 1234, "T": 50, "B": 1000, "n": 32, "cap": True,
              "temperature": 1.0},
@@ -87,7 +87,8 @@ def crossing_pairs(env, r_cur, valid, P):
     Item index space is [runs :r_cur | shop], as in the scores. A pair's label at horizon h is the best loss up to
     len + h (cut at the cap); it crosses between h and h + 1 when the sign of v_a(h) - v_b(h) flips (strictly; ties
     on both sides don't count). One crossing per pair is drawn at random if there are several, h* = h + 0.5.
-    -> ia, ib [E, P] item indices, hstar [E, P] float, ok [E, P] (pair has a crossing within the remaining budget).
+    -> ia, ib [E, P] item indices, hstar [E, P] float, ok [E, P] (pair has a crossing within the remaining budget),
+       s0 [E, P] sign of v_a - v_b just before the crossing (at h* - 0.5; the opposite at h* + 0.5).
     """
     E, dev, L = env.E, env.dev, env.L
     w = valid.float() + 1e-9 * (~valid).float()
@@ -108,8 +109,10 @@ def crossing_pairs(env, r_cur, valid, P):
     flip = (sg[..., :-1] * sg[..., 1:] < 0) & (h[None, None, 1:] <= rem[:, None, None])
     ok = flip.any(-1) & (idx[:, :P] != idx[:, P:]) & valid.gather(1, idx[:, :P]) & valid.gather(1, idx[:, P:])
     key = torch.where(flip, torch.rand(flip.shape, device=dev), torch.full(flip.shape, -1.0, device=dev))
-    hstar = key.argmax(-1).float() + 1.5                                    # flip between h and h + 1
-    return idx[:, :P], idx[:, P:], hstar, ok
+    j = key.argmax(-1)
+    hstar = j.float() + 1.5                                                 # flip between h = j + 1 and h + 1
+    s0 = sg.gather(2, j[..., None])[..., 0]                                 # sign of v_a - v_b at h = j + 1
+    return idx[:, :P], idx[:, P:], hstar, ok, s0
 
 
 def policy_step(model, env, temperature=1.0, greedy=False, h=(1.0, 1.0), amp=True):
@@ -117,10 +120,14 @@ def policy_step(model, env, temperature=1.0, greedy=False, h=(1.0, 1.0), amp=Tru
     obs = from_env(env, H)
     r_cur = obs.run_len.shape[1]
     tok, pad = encode(obs, env.d_max)
+    th = getattr(model, "pair_model", "bt") == "thurstone"
     with torch.autocast("cuda", dtype=torch.bfloat16, enabled=amp):
-        s = model(tok, pad)
+        s = model(tok, pad, dist=True) if th else model(tok, pad)
     valid = torch.cat([env.choosable()[:, :r_cur], env.choosable()[:, env.R:]], 1)
-    a, _ = sample_action(s.float(), valid, temperature, greedy)
+    if th:   # Thompson sampling; temperature = sigma scale
+        a, _ = thompson_action(s[0].float(), s[1].float(), valid, temperature, greedy)
+    else:
+        a, _ = sample_action(s.float(), valid, temperature, greedy)
     return to_env_action(a, r_cur, env.R)
 
 
@@ -186,6 +193,9 @@ def main():
                      dir=str(out_dir))
 
     model = Scorer(d_max=10, **cfg["model"]).to(device)
+    thurstone = model.pair_model == "thurstone"
+    assert not (thurstone and tc["n_horizons"] > 1), "Thurstone readout: n_horizons > 1 not implemented"
+    assert tc["cross_mode"] in ("tie", "sides")
     n_params = sum(p.numel() for p in model.parameters())
     print(f"scorer params: {n_params/1e6:.2f}M", flush=True)
     opt = torch.optim.AdamW(model.parameters(), lr=tc["lr"], weight_decay=tc["wd"], betas=(0.9, 0.98))
@@ -246,15 +256,27 @@ def main():
             loss = torch.stack(losses).mean()
             if tc["cross_weight"] > 0:
                 # tie target at each sampled pair's crossing horizon h*: BCE with label 0.5 (zero at s_a = s_b)
-                ia, ib, hs, ok = crossing_pairs(env, r_cur, valid, tc["cross_pairs"])
+                # "tie": tie target at each sampled pair's crossing h*: BCE with label 0.5 (zero at s_a = s_b).
+                # "sides": the ordinary labels at both integer horizons around the crossing (opposite signs).
+                ia, ib, hs, ok, s0 = crossing_pairs(env, r_cur, valid, tc["cross_pairs"])
                 he = torch.stack([hi.gather(1, ia[..., None].expand(-1, -1, hi.shape[-1])),
                                   hi.gather(1, ib[..., None].expand(-1, -1, hi.shape[-1]))], 2)
-                with torch.autocast("cuda", dtype=torch.bfloat16, enabled=tc["amp"]):
-                    sp = model.read(he, global_at_horizons(tok, hs, env.B, env.T)).float()   # [E, P, 2]
-                z = sp[..., 0] - sp[..., 1]
-                tie = -0.5 * (torch.nn.functional.logsigmoid(z) + torch.nn.functional.logsigmoid(-z)) - math.log(2)
                 okf = ok.float()
-                cross_loss = (tie * okf).sum() / okf.sum().clamp(min=1)
+                ls = torch.nn.functional.logsigmoid
+                if tc["cross_mode"] == "tie":
+                    with torch.autocast("cuda", dtype=torch.bfloat16, enabled=tc["amp"]):
+                        sp = model.read(he, global_at_horizons(tok, hs, env.B, env.T)).float()   # [E, P, 2]
+                    z = sp[..., 0] - sp[..., 1]
+                    per = -0.5 * (ls(z) + ls(-z)) - math.log(2)
+                else:
+                    with torch.autocast("cuda", dtype=torch.bfloat16, enabled=tc["amp"]):
+                        sp = torch.stack([model.read(he, global_at_horizons(tok, hs + dh, env.B, env.T))
+                                          for dh in (-0.5, 0.5)], 2).float()                   # [E, P, 2 sides, 2]
+                    zz = sp[..., 0] - sp[..., 1]
+                    a_wins = torch.stack([s0 < 0, s0 > 0], 2)                    # lower loss wins
+                    per = -torch.where(a_wins, ls(zz), ls(-zz)).mean(2)
+                    z = zz[:, :, 0] - zz[:, :, 1]                               # logged: change of the margin across h*
+                cross_loss = (per * okf).sum() / okf.sum().clamp(min=1)
                 loss = loss + tc["cross_weight"] * cross_loss
                 cross_stats = torch.stack([cross_loss.detach(), okf.mean(), z.detach().abs()[ok].mean()
                                            if ok.any() else z.new_zeros(())])
@@ -263,8 +285,9 @@ def main():
         else:
             vals = labels(H)
             with torch.autocast("cuda", dtype=torch.bfloat16, enabled=tc["amp"]):
-                s = model(tok, pad)
-            loss, acc, npair = pairwise_loss(s.float(), vals, valid, weight=weights(vals))
+                out = model(tok, pad, dist=True) if thurstone else model(tok, pad)
+            s, sig = (out[0].float(), out[1].float()) if thurstone else (out.float(), None)
+            loss, acc, npair = pairwise_loss(s, vals, valid, weight=weights(vals), sigma=sig)
         opt.zero_grad(set_to_none=True)
         loss.backward()
         gn = torch.nn.utils.clip_grad_norm_(model.parameters(), tc["grad_clip"])
@@ -272,7 +295,11 @@ def main():
         sched.step()
 
         with torch.no_grad():
-            a, ent = sample_action(s.detach().float(), valid, tau if tau is not None else tc["temperature"])
+            t_ = tau if tau is not None else tc["temperature"]
+            if thurstone:
+                a, ent = thompson_action(s.detach(), sig.detach(), valid, t_)
+            else:
+                a, ent = sample_action(s.detach().float(), valid, t_)
             is_new = a >= r_cur
             out = env.step(to_env_action(a, r_cur, env.R))
             if tau is not None and out["done"].any():

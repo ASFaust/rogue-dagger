@@ -109,7 +109,7 @@ def test_crossing_pairs_flip_labels(p_cap):
     ch = env.choosable()
     valid = torch.cat([ch[:, :r], ch[:, env.R:]], 1)
     torch.manual_seed(0)
-    ia, ib, hs, ok = crossing_pairs(env, r, valid, 32)
+    ia, ib, hs, ok, s0 = crossing_pairs(env, r, valid, 32)
     assert ok.any()
     rem = env.B - env.consumed
     for e, p in ok.nonzero().tolist():
@@ -120,4 +120,34 @@ def test_crossing_pairs_flip_labels(p_cap):
             v = env.values(torch.full((env.E,), h, device=DEV))
             v = torch.cat([v[:, :r], v[:, env.R:]], 1)[e]
             sides.append(torch.sign(v[ia[e, p]] - v[ib[e, p]]).item())
-        assert sides[0] * sides[1] < 0
+        assert sides[0] * sides[1] < 0 and sides[0] == s0[e, p].item()
+
+
+def test_thurstone_scorer_loss_and_thompson():
+    from roguedagger.model import thompson_action
+    env = ShopEnv(4, EnvConfig(), DEV, seed=1)
+    for _ in range(5):
+        env.step(torch.multinomial(env.choosable().float(), 1)[:, 0])
+    obs = from_env(env, env.horizon())
+    tok, pad = encode(obs, env.d_max)
+    for readout in ("token", "mlp"):
+        m = Scorer(d_model=32, n_layers=1, n_heads=2, d_ff=64, readout=readout, pair_model="thurstone").to(DEV)
+        mu, sig = m(tok, pad, dist=True)
+        assert mu.shape == sig.shape == (4, tok.shape[1] - 1) and (sig > 0).all()
+        assert torch.equal(m(tok, pad), mu)
+        r = obs.run_len.shape[1]
+        valid = torch.cat([env.choosable()[:, :r], env.choosable()[:, env.R:]], 1)
+        v = env.values(env.horizon())
+        v = torch.cat([v[:, :r], v[:, env.R:]], 1)
+        loss, acc, npair = pairwise_loss(mu, v, valid, sigma=sig)
+        loss.backward()
+        assert torch.isfinite(loss) and npair > 0
+        a, _ = thompson_action(mu.detach(), sig.detach(), valid)
+        assert valid.gather(1, a[:, None]).all()
+        g, _ = thompson_action(mu.detach(), sig.detach(), valid, greedy=True)
+        assert torch.equal(g, mu.detach().masked_fill(~valid, float("-inf")).argmax(-1))
+    # equal sigmas: probit loss is a monotone function of the margin, BT ordering kept
+    s = torch.tensor([[2.0, 0.0]])
+    l1, *_ = pairwise_loss(s, torch.tensor([[0.1, 0.2]]), torch.ones(1, 2, dtype=torch.bool), sigma=torch.ones(1, 2))
+    l2, *_ = pairwise_loss(s, torch.tensor([[0.2, 0.1]]), torch.ones(1, 2, dtype=torch.bool), sigma=torch.ones(1, 2))
+    assert l1 < l2

@@ -1,0 +1,17 @@
+# wide_focus03 with a Thurstone readout trained from scratch (docs/future-ideas/thurstone-thompson.md): each token
+# outputs (mu, sigma), P(a beats b) = Phi((mu_a - mu_b) / sqrt(sigma_a^2 + sigma_b^2)), and the rollout policy is
+# Thompson sampling (one draw mu + tau * sigma * eps per item, argmax) at tau = 1. Base is wide-focus03 because it is
+# the headline model with 3 seeds; the readout and the policy change together (the policy needs sigma).
+env:
+  shop_mode: uniform
+  n_range: [4, 64]
+  T_range: [4, 300]
+  budget_full_range: [0.5, 200.0]
+  B_range: [20, 1200]
+  p_cap: 0.5
+model:
+  pair_model: thurstone
+train:
+  n_envs: 256
+  iters: 100000
+  pair_low: 0.3

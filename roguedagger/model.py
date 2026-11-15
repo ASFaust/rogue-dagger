@@ -26,39 +26,49 @@ def _fp32(head: nn.Module, x: torch.Tensor) -> torch.Tensor:
 
 class Scorer(nn.Module):
     def __init__(self, d_max: int = 10, d_model: int = 256, n_layers: int = 6, n_heads: int = 8,
-                 d_ff: int = 1024, dropout: float = 0.0, readout: str = "token"):
+                 d_ff: int = 1024, dropout: float = 0.0, readout: str = "token", pair_model: str = "bt"):
         super().__init__()
-        assert readout in ("token", "mlp")
-        self.d_max, self.readout = d_max, readout
+        assert readout in ("token", "mlp") and pair_model in ("bt", "thurstone")
+        self.d_max, self.readout, self.pair_model = d_max, readout, pair_model
         self.embed = nn.Sequential(nn.Linear(feature_dim(d_max), d_model), nn.GELU(), nn.Linear(d_model, d_model))
         layer = nn.TransformerEncoderLayer(d_model, n_heads, d_ff, dropout, activation="gelu",
                                            batch_first=True, norm_first=True)
         self.trunk = nn.TransformerEncoder(layer, n_layers, enable_nested_tensor=False)
         self.norm = nn.LayerNorm(d_model)
         d_in = d_model + (N_GLOBAL if readout == "mlp" else 0)
-        self.head = nn.Sequential(nn.Linear(d_in, d_model), nn.GELU(), nn.Linear(d_model, 1))
+        self.head = nn.Sequential(nn.Linear(d_in, d_model), nn.GELU(), nn.Linear(d_model, 2 if pair_model == "thurstone" else 1))
 
-    def forward(self, tok: torch.Tensor, pad: torch.Tensor, glob: torch.Tensor | None = None) -> torch.Tensor:
+    def _out(self, y: torch.Tensor, dist: bool):
+        """Head output [..., 1 or 2] -> scores [...] (BT, or Thurstone mu), or (mu, sigma) if dist (Thurstone only)."""
+        if self.pair_model == "bt":
+            return y[..., 0]
+        mu, sig = y[..., 0], nn.functional.softplus(y[..., 1]) + 1e-2
+        return (mu, sig) if dist else mu
+
+    def forward(self, tok: torch.Tensor, pad: torch.Tensor, glob: torch.Tensor | None = None, dist: bool = False):
         """tok [E, S, F], pad [E, S] -> scores [E, S - 1] (global token dropped), fp32.
 
         readout "mlp" only: glob [E, K, N_GLOBAL] reads the same trunk output out at K global
         states (e.g. K horizons) -> scores [E, K, S - 1]. Default: the global token's features.
+        pair_model "thurstone": scores are the means mu; dist=True returns (mu, sigma).
         """
         if self.readout == "token":
             h = self.trunk(self.embed(tok), src_key_padding_mask=pad)
-            return _fp32(self.head, self.norm(h[:, 1:])).squeeze(-1)
+            return self._out(_fp32(self.head, self.norm(h[:, 1:])), dist)
         h = self.items(tok, pad)
         single = glob is None
         if single:
             glob = tok[:, :1, OFF_G:OFF_G + N_GLOBAL]
-        s = self.read(h, glob)
-        return s[:, 0] if single else s
+        s = self.read(h, glob, dist)
+        if not single:
+            return s
+        return tuple(x[:, 0] for x in s) if isinstance(s, tuple) else s[:, 0]
 
     def items(self, tok: torch.Tensor, pad: torch.Tensor) -> torch.Tensor:
         """readout "mlp": horizon-free item embeddings [E, M, d] (global token dropped)."""
         return self.norm(self.trunk(self.embed(tok[:, 1:]), src_key_padding_mask=pad[:, 1:]))
 
-    def read(self, h: torch.Tensor, glob: torch.Tensor) -> torch.Tensor:
+    def read(self, h: torch.Tensor, glob: torch.Tensor, dist: bool = False):
         """readout "mlp": h [E, M, d] at K global states glob [E, K, G] -> scores [E, K, M], fp32.
         Also h [E, P, J, d] with one global state per row glob [E, P, G] -> [E, P, J] (per-pair horizons)."""
         if h.dim() == 3:
@@ -66,13 +76,14 @@ class Scorer(nn.Module):
             h, glob = h[:, None].expand(E, K, M, h.shape[-1]), glob[:, :, None].expand(E, K, M, glob.shape[-1])
         else:
             glob = glob[:, :, None].expand(*h.shape[:3], glob.shape[-1])
-        return _fp32(self.head, torch.cat([h, glob.to(h.dtype)], -1)).squeeze(-1)
+        return self._out(_fp32(self.head, torch.cat([h, glob.to(h.dtype)], -1)), dist)
 
 
 def pairwise_loss(scores: torch.Tensor, values: torch.Tensor, valid: torch.Tensor, tol: float = 1e-6,
-                  weight: torch.Tensor | None = None):
+                  weight: torch.Tensor | None = None, sigma: torch.Tensor | None = None):
     """Pairwise BCE on p(i beats j) = sigmoid(s_i - s_j), target = [v_i < v_j].
 
+    sigma [E, M] (Thurstone): p(i beats j) = Phi((s_i - s_j) / sqrt(sigma_i^2 + sigma_j^2)) instead.
     scores, values, valid: [E, M]. Pairs with |v_i - v_j| <= tol carry no label.
     weight: optional [E, M, M] pair weights (per-env loss is the weighted mean).
     Returns (loss averaged per env then over envs, pair accuracy, mean #pairs).
@@ -81,7 +92,11 @@ def pairwise_loss(scores: torch.Tensor, values: torch.Tensor, valid: torch.Tenso
     m = valid[:, :, None] & valid[:, None, :] & (dv.abs() > tol)
     logit = scores[:, :, None] - scores[:, None, :]
     target = (dv < 0).float()
-    bce = nn.functional.binary_cross_entropy_with_logits(logit, target, reduction="none")
+    if sigma is None:
+        bce = nn.functional.binary_cross_entropy_with_logits(logit, target, reduction="none")
+    else:
+        z = logit / (sigma[:, :, None] ** 2 + sigma[:, None, :] ** 2).sqrt()
+        bce = -(target * torch.special.log_ndtr(z) + (1 - target) * torch.special.log_ndtr(-z))
     npair = m.sum((1, 2))
     has = npair > 0
     w = m.float() if weight is None else m.float() * weight
@@ -102,6 +117,15 @@ def sample_action(scores: torch.Tensor, valid: torch.Tensor, temperature: float 
     if greedy:
         return logits.argmax(-1), ent
     return torch.multinomial(p, 1, generator=generator)[:, 0], ent
+
+
+def thompson_action(mu: torch.Tensor, sigma: torch.Tensor, valid: torch.Tensor, scale=1.0, greedy: bool = False):
+    """Thompson sampling for a Thurstone scorer: one draw mu + scale * sigma * eps per item, take the best valid one.
+    P(pick a) is the model's P(a is best) at scale 1; scale -> 0 (or greedy) is argmax mu. scale: float or [E].
+    -> (action [E], entropy placeholder [E] = 0)."""
+    sc = scale[:, None] if torch.is_tensor(scale) else scale
+    z = mu if greedy else mu + sc * sigma * torch.randn_like(mu)
+    return z.masked_fill(~valid, float("-inf")).argmax(-1), torch.zeros_like(mu[:, 0])
 
 
 class Critic(nn.Module):
