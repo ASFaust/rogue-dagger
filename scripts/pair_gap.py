@@ -41,6 +41,7 @@ class Acc:
         self.n = torch.zeros(len(FAMS), 3, 3, device=dev, dtype=torch.float64)   # family, type, progress third
         self.c = torch.zeros_like(self.n)
         self.bce = torch.zeros_like(self.n)
+        self.top = torch.zeros(len(FAMS), 6, device=dev, dtype=torch.float64)   # states, top-1 hits, best-pairs n, c
 
     def add(self, fam_idx, s, v, valid, is_shop, prog):
         """fam_idx [E]; s, v, valid, is_shop [E, K]; prog [E] in [0, 1]."""
@@ -51,6 +52,26 @@ class Acc:
         y = (dv < 0).float()                               # 1 if i better
         correct = ((ds > 0).float() == y).double()
         bce = F.binary_cross_entropy_with_logits(ds, y, reduction="none").double()
+        # decision-focused: does the top score hit the best label; accuracy on pairs that contain the best item
+        vb = v.masked_fill(~valid, float("inf"))
+        best = vb.argmin(1)
+        nv = valid.sum(1)
+        st = (nv >= 2).double()
+        hit = (s.masked_fill(~valid, -float("inf")).argmax(1) == best).double() * st
+        # tie-tolerant: label gap of the top-scored item to the best, relative to median-to-best gap in the state
+        top_i = s.masked_fill(~valid, -float("inf")).argmax(1)
+        vt = v.gather(1, top_i[:, None])[:, 0]
+        vmed = vb.masked_fill(~valid, float("nan")).nanmedian(1).values
+        vbest = vb.min(1).values
+        den = vmed - vbest
+        okg = (st > 0) & (den > 1e-9)
+        gap = torch.where(okg, ((vt - vbest) / den.clamp(min=1e-9)).clamp(max=10), torch.zeros_like(vt)).double()
+        isb = torch.zeros_like(valid)
+        isb[torch.arange(len(best)), best] = True
+        bp = ok & (isb[:, :, None] | isb[:, None, :])
+        for col, val in ((0, st), (1, hit), (2, bp.double().sum((1, 2))), (3, (bp.double() * correct).sum((1, 2))),
+                         (4, okg.double()), (5, gap)):
+            self.top[:, col].index_add_(0, fam_idx, val)
         typ = is_shop[:, :, None].long() + is_shop[:, None, :].long()   # 0 rr, 1 rs, 2 ss
         third = (prog * 3).long().clamp(max=2)
         for t in range(3):
@@ -154,6 +175,15 @@ def main():
         ar, at = real.c[fi].sum().item() / nr, twin.c[fi].sum().item() / nt
         print(f"{fam:8} {'all':10}  {'all':8} {ar:9.3f} {at:9.3f}")
         res[f"{fam}/all/all"] = dict(real_acc=ar, twin_acc=at)
+        tr, tt = real.top[fi], twin.top[fi]
+        h_r, h_t = (tr[1] / tr[0]).item(), (tt[1] / tt[0]).item()
+        b_r, b_t = (tr[3] / tr[2]).item(), (tt[3] / tt[2]).item()
+        g_r, g_t = (tr[5] / tr[4]).item(), (tt[5] / tt[4]).item()
+        print(f"{fam:8} top-1 hit {h_r:.3f} vs {h_t:.3f};  pairs with the best item {b_r:.3f} vs {b_t:.3f};  "
+              f"top item's gap to best / median's gap {g_r:.3f} vs {g_t:.3f}")
+        res[f"{fam}/topgap"] = dict(real=g_r, twin=g_t)
+        res[f"{fam}/top1"] = dict(real=h_r, twin=h_t)
+        res[f"{fam}/bestpairs"] = dict(real=b_r, twin=b_t)
     if a.out:
         Path(a.out).write_text(json.dumps(res, indent=1))
 

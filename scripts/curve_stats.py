@@ -85,7 +85,7 @@ def stats(Y, X, rng, n_pairs=4000):
 
 
 @torch.no_grad()
-def twin_tasks(tasks, k, dev, seed=0):
+def twin_tasks(tasks, k, dev, seed=0, noise_scale=1.0, noise_smooth=0.0):
     g = torch.Generator(device=dev)
     g.manual_seed(seed)
     D = 10
@@ -94,6 +94,7 @@ def twin_tasks(tasks, k, dev, seed=0):
         d = min(d, D)
         T = t.Y.shape[1]
         pr = PriorTasks(k, D, dev, generator=g)
+        pr.noise_scale, pr.noise_smooth = noise_scale, noise_smooth
         pr.resample(torch.arange(k, device=dev), torch.full((k,), d, device=dev))
         x = torch.rand(k, n, D, device=dev, generator=g)
         x[:, :, d:] = 0
@@ -118,12 +119,16 @@ def main():
     ap.add_argument("families", nargs="+")
     ap.add_argument("--twins", type=int, default=4)
     ap.add_argument("--device", default="cuda")
+    ap.add_argument("--noise-scale", type=float, default=1.0)
+    ap.add_argument("--noise-smooth", type=float, default=0.0)
+    ap.add_argument("--only", nargs="*", default=None, help="print only these statistics")
     a = ap.parse_args()
     rng = np.random.default_rng(0)
     for fam in a.families:
         tasks = LOADERS[fam]()
         R = [stats(t.Y.astype(np.float64), t.X, rng) for t in tasks]
-        S = [stats(Y.astype(np.float64), X, rng) for _, X, Y in twin_tasks(tasks, a.twins, a.device)]
+        S = [stats(Y.astype(np.float64), X, rng) for _, X, Y in twin_tasks(tasks, a.twins, a.device, 0, a.noise_scale,
+                                                                             a.noise_smooth)]
         keys = list(dict.fromkeys(k for x in R + S for k in x))
         print(f"\n{fam}: {len(R)} real tasks, {len(S)} twins")
         print("statistic".ljust(16) + "real med".rjust(10) + "twin med".rjust(10) + "real IQR".rjust(16)
@@ -134,6 +139,8 @@ def main():
             s = np.array([x.get(key, np.nan) for x in S])
             rows.append((ks(r, s), key, r, s))
         for D_, key, r, s in sorted(rows, key=lambda z: -np.nan_to_num(z[0])):
+            if a.only and key not in a.only:
+                continue
             q = lambda v: np.nanquantile(v, [0.25, 0.5, 0.75])
             qr, qs = q(r), q(s)
             print(key.ljust(16) + f"{qr[1]:10.3f}{qs[1]:10.3f}" + f"  [{qr[0]:5.2f},{qr[2]:5.2f}]".rjust(16)

@@ -51,6 +51,8 @@ REGISTRY = [
      "rollout τ per env, log-uniform 0.25..2", 0.25, 1.0),
     ("Pairwise, variants of `wide-focus03`", "`wide-focus03-tmixcold-v1`", ["wf03tmixcold"],
      "rollout τ per env, log-uniform 0.1..1", 0.25, 1.0),
+    ("Pairwise, variants of `wide-focus03`", "`wide-focus03-noise`", ["wf03noise", "wf03noises1", "wf03noises2"],
+     "prior noise × 0.25, smoothed over 1 point (calibrated on TaskSet dev data)", 0.25, 1.0),
     ("Pairwise, variants of `wide-focus03`", "`wide-focus03-thurstone`", ["wf03thu", "wf03thus1"],
      "Thurstone (μ, σ) readout from scratch, Thompson-sampling policy (τ = σ scale)", 1.0, 1.0),
     ("Pairwise, variants of `wide-focus03`", "`wide-focus03-thurstone`, σ×0.5", ["wf03thu", "wf03thus1"],
@@ -78,7 +80,7 @@ REGISTRY = [
 ]
 
 # eval tags of runs that are training / queued: their missing cells show "running" (all others show "–")
-PENDING = set()
+PENDING = {"wf03noise", "wf03noises1", "wf03noises2"}
 
 
 def path(fam, tag):

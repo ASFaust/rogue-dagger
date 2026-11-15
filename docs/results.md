@@ -40,6 +40,7 @@ Deploy settings: **full** = the whole table as the shop (ifBO's setting) at the 
 | `wide-focus03-longT-v1` | 1 | T 4..1500 | 0.25 | 0.068 | 0.0234 | 0.0179 | 0.097 | 0.0527 | 0.0245 |
 | `wide-focus03-tmix-v1` | 1 | rollout τ per env, log-uniform 0.25..2 | 0.25 | 0.104 | 0.0127 | 0.0107 | 0.095 | 0.0560 | 0.0195 |
 | `wide-focus03-tmixcold-v1` | 1 | rollout τ per env, log-uniform 0.1..1 | 0.25 | 0.092 | 0.0112 | 0.0268 | 0.105 | 0.0292 | 0.0256 |
+| `wide-focus03-noise` | 0/3 | prior noise × 0.25, smoothed over 1 point (calibrated on TaskSet dev data) | 0.25 | running | running | running | running | running | running |
 | `wide-focus03-thurstone` | 2/2 | Thurstone (μ, σ) readout from scratch, Thompson-sampling policy (τ = σ scale) | 1.0 | 0.173 | 0.0609 | 0.0260 | 0.073 | 0.0558 | 0.0177 |
 | `wide-focus03-thurstone`, σ×0.5 | 2/2 | same models, Thompson draws at half σ | 0.5 | 0.077 | 0.0355 | 0.0137 | – | – | – |
 | `wide-focus03-thurstone`, σ×0.25 | 2/2 | same models, σ scale 0.25 (swept on the benchmarks: optimistic) | 0.25 | 0.062 | 0.0215 | 0.0158 | – | – | – |

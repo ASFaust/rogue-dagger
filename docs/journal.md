@@ -517,9 +517,10 @@ Reading (dev and test agree in direction on almost everything, so dev data is us
 1. **Noise is too large and of the wrong kind.** Prior noise is ~3-4× the real residual, and white (increments
    anticorrelated, −0.35, as i.i.d. noise gives), while real fluctuations are smooth (increments positively
    correlated: PD1 +0.72, dev +0.57, LCBench +0.31; TaskSet test's 50 widely spaced points are the exception).
-   The prior's up-steps (0.47 ≈ coin flip) and much of its overfitting count are this noise.
+   The prior's up-steps (0.47 ≈ coin flip) are this noise. (Not its overfitting count: see the
+   correction in the noise-calibration entry below.)
 2. **Too much overfitting and divergence in the prior**: 0.5-0.6 of curves vs 0-0.3 (PD1: none, consistent with
-   decaying LR schedules ending at their best); diverging 0.15-0.21 vs 0-0.03. Partly confounded with 1.
+   decaying LR schedules ending at their best); diverging 0.15-0.21 vs 0-0.03.
 3. **Real tasks have dead configs and a cluster near the best; the prior has neither.** Flat curves: TaskSet about
    half (losses clipped at the initial loss: NaN or no learning), PD1/LCBench 6-8%; prior none. Final losses span
    the task's range far more in TaskSet and PD1 (0.96-0.98 vs 0.45), and PD1 has many near-best configs (23% within
@@ -532,3 +533,74 @@ config is easy and the budget is better spent training it, so a policy's balance
 differently than on the prior. But the big-shop PD1 loss isn't clearly about starting more: big-shop models start
 151-152 runs per episode on the PD1 full table vs 110-142 for focus03, and about the same at shop 32 (150-157 vs
 143-150). To be checked against measurements 1-2 (twin ρ, scorer accuracy real vs twin), running.
+
+## 2026-11-15: Prior sim-to-real, measurements 1-2: matched-twin ρ and the scorer on real vs twin states
+
+**Matched twins** (`scripts/twins.py`, `runs/twins/`): for each of the 87 benchmark tasks, 16 prior tasks with its d
+and T, budget 1000, shop 32, capped runs; every model with a shop-32 benchmark eval (41) runs on the same seeded
+twins with that eval's checkpoint and temperature; regret normalised by a pool of 1000 random configs per twin.
+Spearman ρ between twin regret and benchmark shop-32 regret, bootstrap over models:
+
+| models | TaskSet | PD1 | LCBench |
+|---|---|---|---|
+| all | +0.29 [−0.07, +0.60] (41) | **+0.64 [+0.35, +0.79]** (35) | −0.10 [−0.47, +0.34] (34) |
+| pairwise | **+0.56 [+0.20, +0.80]** (33) | +0.31 [−0.07, +0.60] (27) | +0.38 [−0.04, +0.75] (26) |
+| RL | +0.19 [−0.74, +1.00] (8) | +0.21 [−0.86, +0.90] (8) | +0.07 [−0.69, +0.71] (8) |
+
+- The PD1 inversion of the crude measurement (pairwise −0.32, RL −0.82, one synthetic spec with T 50) is gone with
+  matched specs: it was spec mismatch (curve length, budget), not curve shape.
+- RL: 8 models give no information (intervals span almost [−1, 1]). The crude "RL ρ −0.82" from 7 models carries
+  the same caveat; it shouldn't be quoted as evidence that RL exploits the prior. (The other evidence for that
+  stands: RL's best synthetic results with the worst benchmark results, SAC's ~100 runs per episode.)
+- Pairwise: positive everywhere, significant on TaskSet only. Twins are a usable but weak model-selection signal.
+
+**Scorer on real vs twin states** (`scripts/pair_gap.py`, `wide-focus03-v1`, own policy at τ 1, shop 32, 8
+episodes per task and 8 twins per task, every 25 steps all choosable pairs with exact labels; `runs/logs/pair_gap*.log`).
+Pair accuracy, real vs twin:
+
+| | run-run | run-shop | shop-shop | top-1 hit | pairs with the best item | top item's gap to best / median's gap |
+|---|---|---|---|---|---|---|
+| TaskSet | 0.740 / 0.742 | **0.679 / 0.731** | **0.614 / 0.695** | 0.25 / 0.24 | 0.89 / 0.82 | 0.22 / 0.23 |
+| PD1 | 0.764 / 0.726 | 0.738 / 0.723 | 0.697 / 0.694 | 0.10 / 0.18 | 0.77 / 0.78 | 0.23 / 0.29 |
+| LCBench | 0.793 / 0.756 | 0.757 / 0.731 | 0.727 / 0.681 | 0.22 / 0.22 | 0.74 / 0.82 | 0.23 / 0.22 |
+
+- The scorer's per-state judgment transfers: on PD1 and LCBench it is as accurate on real states as on twins or
+  more. The exception is TaskSet comparisons involving unseen configs (−0.05 / −0.08), which fits the curve
+  statistics: TaskSet hyperparameters barely predict the final loss (config smoothness 0.01 real vs 0.15 prior).
+- PD1's low top-1 hit rate (0.10 vs 0.18) is near-ties (23% of PD1 configs are within 5% of the best): the
+  tie-tolerant measure (label gap of the top-scored item to the best, relative to the median's gap) is better on
+  real PD1 than on twins (0.23 vs 0.29).
+- Caveat: no intervals (pairs within a task are strongly dependent); differences under ~0.03 should be read as
+  equal.
+
+Taken together: measured by what the scorer and the policy ranking see, the gap is smaller than the curve
+statistics suggest. The prior's curves differ a lot from real ones (noise, dead configs, overfitting), but the
+pairwise scorer judges real states about as well as prior states, apart from hyperparameter-only comparisons on
+TaskSet.
+
+## 2026-11-15: Noise fix of the prior: calibration on dev data, 3 training seeds launched
+
+Noise is the clearest isolated discrepancy (3-4× too large and white on all 4 families), so per the plan agreed
+with the user (measure; retrain only for one clear isolated discrepancy) one change is tested. Prior noise is now
+configurable (`env.prior_noise_scale`, `env.prior_noise_smooth`: Gaussian-smoothed noise rescaled to unit variance;
+defaults reproduce ifBO's prior). Calibrated on the TaskSet dev set only (`runs/logs/noise_calib.log`, 2 twins per
+task):
+
+| scale, smoothing | noise (real 0.017) | incr. autocorr (real +0.57) | up-steps (real 0.21) | KS sum |
+|---|---|---|---|---|
+| 1, 0 (ifBO) | 0.069 | −0.30 | 0.45 | 2.01 |
+| 0.25, 0 | 0.031 | +0.11 | 0.39 | 1.12 |
+| **0.25, 1** | **0.023** | **+0.65** | **0.35** | **0.99** |
+| 0.25, 1.5 | 0.018 | +0.82 | 0.32 | 0.97 |
+| 0.25, 2 | 0.016 | +0.88 | 0.31 | 1.04 |
+
+Chose 0.25 / 1 (closest medians; KS sum ties with 0.25 / 1.5).
+
+Correction to the curve-statistics entry: the prior's overfitting and divergence are *not* noise artefacts. They
+barely move when the noise is scaled down (overfit 0.54 → 0.41, diverge 0.18 → 0.15 at scale 0.25); they come from
+the basis-curve shapes.
+
+Launched `wide-focus03-noise-v1/-s1/-s2` (configs/wide_focus03_noise.yaml, otherwise identical to `wide-focus03`;
+GPUs 3-5; tags wf03noise, wf03noises1, wf03noises2; runs/logs/noise_runs.sh). Comparison: vs the 3 focus03 seeds
+with compare_seeds.py. Note the in-training synthetic eval uses the changed prior, so its numbers aren't comparable
+with other runs.

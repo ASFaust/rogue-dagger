@@ -52,6 +52,8 @@ class PriorTasks:
         self.pre_std, self.out_std = z(E), z(E)
         self.y0, self.ymax = z(E), z(E)
         self.d = torch.ones(E, dtype=torch.long, device=self.device)
+        self.noise_scale = 1.0    # multiplies ifBO's per-task noise sd (1 = original prior)
+        self.noise_smooth = 0.0   # > 0: noise smoothed over that many points (sd of a Gaussian kernel); 0 = i.i.d.
 
     # ---- random helpers that respect the optional generator -------------------
     def _rand(self, *shape):
@@ -163,7 +165,14 @@ class PriorTasks:
         k = torch.arange(1, t_max + 1, device=self.device, dtype=torch.float32)
         t = (k[None] / steps_per_run.float()[:, None])[:, None, :]  # [E, 1, T]
         y = comb(t.expand(*x.shape[:2], t_max), p)
-        y = y + self._randn(*y.shape) * p["sigma"].float()[..., None]
+        z = self._randn(*y.shape)
+        if self.noise_smooth > 0:   # Gaussian-smoothed noise (sd `noise_smooth` points), rescaled to unit variance
+            w = self.noise_smooth
+            r = int(3 * w)
+            k = torch.exp(-0.5 * (torch.arange(-r, r + 1, device=self.device, dtype=torch.float32) / w) ** 2)
+            k = k / k.norm()
+            z = torch.nn.functional.conv1d(z.reshape(-1, 1, z.shape[-1]), k[None, None], padding=r).reshape(z.shape)
+        y = y + z * (self.noise_scale * p["sigma"].float())[..., None]
         return 1.0 - y.clamp(0.0, 1.0)
 
 

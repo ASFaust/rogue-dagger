@@ -1,0 +1,17 @@
+# wide_focus03 on a prior with real-sized, smooth noise (docs/future-ideas/prior-sim2real.md, journal 2026-11-15).
+# ifBO's prior noise is i.i.d. and 3-4x the real residual on every benchmark family. Calibrated on the TaskSet dev
+# set only (scripts/curve_stats.py, runs/logs/noise_calib.log): noise sd x 0.25, smoothed with a Gaussian kernel of
+# sd 1 point -> median residual 0.023 vs 0.017 real, increment autocorrelation 0.65 vs 0.57 real.
+env:
+  shop_mode: uniform
+  n_range: [4, 64]
+  T_range: [4, 300]
+  budget_full_range: [0.5, 200.0]
+  B_range: [20, 1200]
+  p_cap: 0.5
+  prior_noise_scale: 0.25
+  prior_noise_smooth: 1.0
+train:
+  n_envs: 256
+  iters: 100000
+  pair_low: 0.3

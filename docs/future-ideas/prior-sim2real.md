@@ -1,11 +1,10 @@
 # Measuring the prior's sim-to-real gap, then improving the prior
 
-Status: measuring (2026-11-15). Done: crude decision-level ρ (below); curve statistics on 240 TaskSet dev tasks + the
-3 benchmarks (journal, 2026-11-15: prior noise 3-4× too large and white, too much overfitting/divergence, no dead
-configs, no near-best cluster). Running: matched-twin ρ (`scripts/twins.py`), scorer accuracy real vs twin
-(`scripts/pair_gap.py`). Origin: user, 2026-11-15, way forward (b) of key finding 2 in
-[../journal.md](../journal.md): RL exploits structure of the ifBO prior that real curves don't have. Companion to
-[real-curve-training.md](real-curve-training.md), which is way (a).
+Status: measured, first fix training (2026-11-15; journal entries of that date). Curve statistics: prior noise
+3-4× too large and white, too much overfitting/divergence, no dead configs, no near-best cluster. Matched-twin ρ:
+the crude PD1 inversion was spec mismatch; pairwise ρ positive everywhere (TaskSet +0.56 significant); RL
+uninformative (8 models). Scorer real vs twin: judgment transfers, except TaskSet comparisons of unseen configs.
+Noise fix (×0.25, smoothed 1 point, calibrated on dev) training as `wide-focus03-noise` (3 seeds).
 
 ## Why measure first
 
@@ -109,9 +108,9 @@ starting to transfer.
 
 ## First steps (cheap to expensive)
 
-1. Matched twins for the 3 benchmarks + ρ over our ~30 existing models (no training). Separates spec mismatch
+1. ~~Matched twins for the 3 benchmarks + ρ over our ~30 existing models (no training).~~ Done (`scripts/twins.py`). Separates spec mismatch
    from curve mismatch, notably for the PD1 inversion.
-2. Scorer pair accuracy, real vs twin, by pair type (one frozen model, no training).
+2. ~~Scorer pair accuracy, real vs twin, by pair type (one frozen model, no training).~~ Done (`scripts/pair_gap.py`).
 3. ~~Download more TaskSet tasks as dev data; summary statistics, real vs prior.~~ Done: `data/taskset_dev`
    (`scripts/taskset_dev_tasks.txt`), `scripts/curve_stats.py`.
 4. FT-PFN PIT calibration on dev data.

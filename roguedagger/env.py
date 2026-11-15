@@ -41,6 +41,8 @@ class EnvConfig:
     mutate_std: float = 0.1
     mutate_topk: int = 5
     ref_pool: int = 0                     # RL: random configs per task that set the regret scale (0 = off)
+    prior_noise_scale: float = 1.0        # prior noise sd multiplier (1 = ifBO's prior)
+    prior_noise_smooth: float = 0.0       # prior noise smoothing in points (0 = i.i.d., ifBO's prior)
 
 
 def _log_uniform_int(lo, hi, n, device, gen):
@@ -61,6 +63,7 @@ class ShopEnv:
         self.R = cfg.R_max
         self.L = (cfg.B_range[1] if fixed_spec is None else fixed_spec["B"]) + 1  # curve points kept
         self.prior = PriorTasks(n_envs, d_max, self.dev, generator=self.gen)
+        self.prior.noise_scale, self.prior.noise_smooth = cfg.prior_noise_scale, cfg.prior_noise_smooth
         E, R, N, L, D, dev = self.E, self.R, self.N, self.L, d_max, self.dev
         self.run_x = torch.zeros(E, R, D, device=dev)
         self.run_curve = torch.zeros(E, R, L, device=dev)
