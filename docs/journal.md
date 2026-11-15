@@ -402,3 +402,23 @@ LCBench 0.024, 0.012 / 0.025, 0.014. Shop 32: TaskSet 0.083, 0.060 / 0.094, 0.08
 
 Conclusion: the tie term doesn't help. Variant 2 (`sides`) is training; it differs in that it also trains the
 direction of the margin's change across the crossing.
+
+## 2026-11-15: Sim-to-real gap of the prior: first measurement, new future idea
+
+User: before improving the ifBO prior we need to measure the sim-to-real gap. Plan written up in
+[future-ideas/prior-sim2real.md](future-ideas/prior-sim2real.md) (decision-, model- and data-level measures, dev data
+to keep the benchmarks clean, then ways to improve the prior).
+
+First, free measurement: Spearman ρ across models between synthetic eval regret (last training-log eval: prior
+tasks, T 50, shop 32, τ 1) and benchmark regret at shop 32:
+
+| Models | TaskSet | PD1 | LCBench |
+|---|---|---|---|
+| all (28) | +0.24 | +0.10 | +0.11 |
+| pairwise (21) | +0.75 | **−0.32** | +0.51 |
+| RL (7) | −0.18 | **−0.82** | −0.04 |
+
+The prior ranks pairwise models fairly well for TaskSet, moderately for LCBench, inversely for PD1; RL models
+inversely (PD1 strongly). Caveat: one noisy eval per model and a single synthetic spec (T 50) that doesn't match
+PD1's long curves. Next: matched synthetic twins (same d, T, budget, shop per real task) to separate spec mismatch
+from curve mismatch.
