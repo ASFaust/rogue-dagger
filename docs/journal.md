@@ -29,6 +29,15 @@ difference with a 95 % bootstrap CI over tasks; full table = the whole unseen ta
    ever published, this finding belongs in it.
 3. **No single pairwise variant wins everywhere.** Each training-distribution change trades one family against
    another. Pair weighting and big shops help LCBench and hurt PD1. Big shops and the MLP readout help TaskSet.
+   **Interpretation (user, 2026-11-15):** this looks like sliding along a barrier. Changing the method's biases
+   moves real-world performance sideways, not forward, which suggests the pairwise approach is also near the limit
+   of what the ifBO prior can teach. Same root cause as finding 2, in a milder form.
+   Open caveats that tonight's runs test:
+   - Seed noise. If seed replicates move as much as the variants do, the "trades" are partly noise.
+   - Coverage gaps inside the prior's own knobs. The PD1 loss tracks curve length, and training T stops at 300,
+     below PD1's 1414. Fixing coverage could still move the frontier without new data (`wide-focus03-longT-v1`).
+   
+   If neither moves it, better data is the way forward for the pairwise method too: real curves, or a better prior.
 4. **More training on the prior is not better.** 300k iterations is worse than 100k on all three families, which is
    another sign of overfitting to the prior.
 
@@ -117,3 +126,15 @@ difference with a 95 % bootstrap CI over tasks; full table = the whole unseen ta
   | `wide-focus03-s1`, `wide-s1` | Seed-1 replicates: training noise |
   | `wide-focus03-longT-v1` | T_range 4..1500: curve length alone |
   | `wide-focus03-mid-v1` | Shops 4..128 |
+
+## 2026-11-15: Other learning-curve data
+
+- **Full TaskSet** has about 1000 tasks (1162 per ifBO); we evaluate on the 24-task ifBO subset. The rest is the
+  natural source of real training curves, for RL (way (a) of finding 2) or for mixing real and prior curves in
+  pairwise training, with the 24 benchmark tasks held out. Risk: training on the same family as one benchmark.
+- **LCDB 1.1** (265 OpenML datasets, 32 learners): the largest learning-curve database, but sample-wise
+  (performance vs training-set size), not epoch curves. Not usable as freeze-thaw data. Possibly useful for
+  way (b): its "about 14 % of curves are ill-behaved" is the kind of statistic a better prior would have to match.
+- **Smaller epoch-curve sets**: Quick-Tune meta-dataset (fine-tuning), NAS-Bench-201, HPOBench FCNet, and the
+  surrogates JAHS-Bench-201 and YAHPO.
+- RL stays shelved for now; the user may unshelve it at any time.
