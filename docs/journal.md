@@ -220,3 +220,48 @@ Seed-1 replicates, same config, only `seed` changed. Paired vs seed 0, full tabl
   Revised headline: `wide-focus03` beats FT-PFN on PD1, is on par on TaskSet, and is behind on LCBench. Pair
   weighting 0.3 is better than plain `wide` on LCBench (and probably PD1). With only 2 seeds the seed level of the
   bootstrap is crude.
+
+## 2026-11-15: Cold rollout-temperature mix hurts (pair starvation)
+
+`wide-focus03-tmixcold-v1`: `wide-focus03` with a per-env rollout temperature drawn log-uniform in [0.1, 1] at each
+env reset (the reference trains at τ=1). One seed, vs the 2 `wide-focus03` seeds (`scripts/compare_seeds.py`):
+
+| Family | `wide-focus03` (2 seeds) | tmixcold | gain, seeds resampled |
+|---|---|---|---|
+| TaskSet, full τ=0.25 | 0.055 | 0.092 | **−0.036 [−0.058, −0.014]**, better on 2/24 |
+| PD1, full τ=0.25 | 0.0088 | 0.0112 | −0.002 (n.s.) |
+| LCBench, full τ=0.25 | 0.0135 | 0.0268 | **−0.013 [−0.020, −0.007]**, better on 5/35 |
+| TaskSet, shop 32 τ=1 | 0.085 | 0.105 | −0.020 [−0.038, −0.002] |
+| PD1 / LCBench, shop 32 τ=1 | 0.030 / 0.024 | 0.029 / 0.026 | n.s. |
+
+The TaskSet and LCBench losses are 2-3 times the largest seed-to-seed difference we've seen (0.017 / 0.005), so
+this is a real effect despite one seed. Likely cause, from the training logs (mean of the last 2000 iters):
+colder rollouts start fewer runs (`frac_new` 0.087 vs 0.13; 7.4 vs 12 full trainings per budget) and the batch has
+about half the labelled pairs (7200 vs 13000 per env). Colder rollouts concentrate on fewer, longer runs, so the
+scorer sees fewer and less varied comparisons: the pair starvation the config was meant to avoid, from the other
+side. Labels don't depend on the policy, but the state distribution and the pair count do. The full-table τ=0.25
+deploy setting didn't benefit from seeing cold states in training.
+
+Conclusion: keep training rollouts at τ=1 (or hotter). The hot mix (0.25..2) is being evaluated.
+
+## 2026-11-15: Hot rollout-temperature mix also hurts TaskSet
+
+`wide-focus03-tmix-v1`: per-env rollout τ log-uniform in [0.25, 2] (redrawn at each env reset). One seed, vs the
+2 `wide-focus03` seeds:
+
+| Family | `wide-focus03` (2 seeds) | tmix | gain, seeds resampled |
+|---|---|---|---|
+| TaskSet, full τ=0.25 | 0.055 | 0.104 | **−0.049 [−0.093, −0.014]**, better on 6/24 |
+| PD1, full τ=0.25 | 0.0088 | 0.0127 | −0.004 (n.s.) |
+| LCBench, full τ=0.25 | 0.0135 | 0.0107 | +0.003 [+0.000, +0.006], better on 25/35 |
+| TaskSet, shop 32 τ=1 | 0.085 | 0.095 | −0.010 (n.s.) |
+| PD1, shop 32 τ=1 | 0.030 | 0.056 | **−0.026 [−0.047, −0.009]** |
+| LCBench, shop 32 τ=1 | 0.024 | 0.020 | +0.004 [+0.000, +0.009] |
+
+The TaskSet and PD1-shop-32 losses are far outside seed noise; the LCBench gain is within the seed-to-seed range
+(0.005), so not a result. Training logs: 10700 labelled pairs per env vs 13000 for the reference, `frac_new` 0.116 vs
+0.13. The hot mix also loses pairs (cold envs in the lower half of the range), but less than the cold mix, and still
+loses more on TaskSet, so pair count alone doesn't explain it.
+
+Conclusion: both τ mixes are worse. Training at a fixed τ=1 stays. The per-env temperature code
+(`train.temperature_range`) stays in as an option, off by default.

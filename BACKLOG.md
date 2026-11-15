@@ -42,9 +42,10 @@
 
 - [ ] Probe frozen embeddings for future best loss and its spread (docs/future-ideas/implicit-distribution.md)
 - [ ] Calibration on prior pairs: our σ(s_a − s_b) vs FT-PFN histograms under independence
-- [ ] BT vs Thurstone head on frozen embeddings, held-out pairs (gate for docs/future-ideas/thurstone-thompson.md)
+- [~] BT vs Thurstone head on frozen embeddings, held-out pairs (gate for docs/future-ideas/thurstone-thompson.md): `scripts/head_test.py`, running
 - [ ] Crossing equality term (MLP readout), ablation vs wide-readout-v1 (docs/future-ideas/crossing-horizons.md)
-- [~] Per-env rollout temperature: `wide-focus03-tmix-v1` (0.25..2), `wide-focus03-tmixcold-v1` (0.1..1), queued
+- [x] Per-env rollout temperature: both worse than fixed τ=1. `wide-focus03-tmixcold-v1` (0.1..1): TaskSet −0.036, LCBench −0.013, half the pairs. `wide-focus03-tmix-v1` (0.25..2): TaskSet −0.049, PD1 shop-32 −0.026. See journal
+- [~] Seed-1 replicate of `wide-focus03-big-v1` (GPU 4): does the big-shop PD1 loss survive seed noise?
 ## RL extension (docs/rl.md) — SHELVED 2026-11-14, reasons in docs/rl.md
 - [x] PPO + GAE trainer (`roguedagger/rl.py`) starting from a pairwise checkpoint; separate critic initialised from its trunk; critic-only warmup; pairwise BCE as aux loss
 - [x] Reward: per-step decrease of log normalised regret (pool of 512 random configs per task), always >= 0
