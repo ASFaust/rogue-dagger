@@ -34,7 +34,7 @@
 - [x] `wide-focus03-mid-v1`: shops 4..128: LCBench −0.007, rest within seed noise
 - [x] Seed noise: seed-1 replicates differ from seed 0 by up to 0.017 TaskSet / 0.013 PD1 / 0.005 LCBench, "significant" under task CIs (journal 2026-11-15)
 - [~] Seed-2 replicates `wide-s2`, `wide-focus03-s2` (3 seeds per reference)
-- [ ] Seed-aware comparison: hierarchical bootstrap over tasks and training seeds in `scripts/compare.py`
+- [x] Seed-aware comparison: `scripts/compare_seeds.py` (bootstrap over tasks and training seeds)
 - [x] Deploy-time shop size on PD1 (`--n-shop 64/128`, τ 0.25): learned behaviour, not a deploy mismatch. `wide-focus03-big-v1`
   is 0.0205 at shop 64, 128 and the full table alike; `wide-focus03-v1` is 0.0077 / 0.0070 / 0.0059. At shop 64 the big
   model starts as many runs as focus03 does on the full table (111 vs 110) and is still 3x worse, so it's not the run

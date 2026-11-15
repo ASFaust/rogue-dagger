@@ -205,3 +205,18 @@ Seed-1 replicates, same config, only `seed` changed. Paired vs seed 0, full tabl
   - The "sliding along a barrier" reading (key finding 3) may be partly noise: variants may move results less than
     it seemed. That needs re-checking with seeds before acting on it.
   - Seed-2 replicates of `wide` and `wide-focus03` are now running (GPUs 5, 6) to get 3 seeds of each reference.
+- **Seed-aware comparison** (`scripts/compare_seeds.py`: per-config mean over training seeds; bootstrap over tasks
+  and seeds). With 2 seeds each, full table, τ=0.25:
+
+  | Family | FT-PFN | `wide` (2 seeds) | `wide-focus03` (2 seeds) |
+  |---|---|---|---|
+  | TaskSet | 0.053 | 0.058 (−0.005 [−0.022, +0.012]) | 0.055 (−0.002 [−0.024, +0.019]) |
+  | PD1 | 0.0151 | 0.0164 (−0.001 [−0.013, +0.008]) | **0.0088 (+0.006 [+0.001, +0.012])** |
+  | LCBench | 0.0076 | 0.0185 (−0.011 [−0.018, −0.005]) | 0.0135 (−0.006 [−0.010, −0.002]) |
+
+  Brackets: gain vs FT-PFN (positive = better), seeds resampled. `wide-focus03` vs `wide`: PD1 +0.008
+  [−0.002, +0.021], LCBench **+0.005 [+0.001, +0.011]**, TaskSet +0.003 (n.s.).
+
+  Revised headline: `wide-focus03` beats FT-PFN on PD1, is on par on TaskSet, and is behind on LCBench. Pair
+  weighting 0.3 is better than plain `wide` on LCBench (and probably PD1). With only 2 seeds the seed level of the
+  bootstrap is crude.
