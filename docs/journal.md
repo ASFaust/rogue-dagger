@@ -172,5 +172,15 @@ difference with a 95 % bootstrap CI over tasks; full table = the whole unseen ta
   - Crossings caused by noise wiggles near the start; cummin damps these.
   - Over-weighting hard pairs. Mix crossing horizons with the existing log-uniform draws.
   - It builds on the MLP readout, which was best on TaskSet but worse on LCBench.
-- **Clean ablation.** Against `wide-readout-v1` (same readout, same K = 4), changing only how the K horizons
-  are chosen: log-uniform vs crossing-mined.
+- **Simpler form (user, 2026-11-15): an equality constraint at the crossing.** No need to sample horizons around a
+  crossing. At the crossing horizon h* the two items are tied, so the extra loss is just "scores equal at h*":
+  pairwise BCE with soft label 0.5 at h*, i.e. a gradient of sigmoid(s_a − s_b) − 0.5, or (s_a − s_b)².
+  BCE with 0.5 keeps it on the same likelihood scale as the main loss.
+  - Together with the normal labels at other horizons, this pins where the score difference changes sign,
+    which is exactly the shape information. Each crossing pair costs one extra readout.
+  - h* is discrete (the order flips between h and h+1), but the horizon features are continuous (H/B,
+    log1p(H/T)). The tie point can be read out at a fractional h*, interpolated between the two steps.
+  - Pairs that are tied over a whole stretch (both best-so-far curves flat and equal) aren't crossings; skip them.
+  - It needs the score to be a smooth function of the horizon, which only the MLP readout guarantees cheaply.
+- **Clean ablation.** Against `wide-readout-v1` (same readout, same K = 4), changing only one thing: (i) the K horizons
+  chosen at crossings instead of log-uniform, or (ii) the equality term at crossings added (simpler, try first).
