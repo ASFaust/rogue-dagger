@@ -1,0 +1,15 @@
+# wide-focus03 with a random rollout temperature per env (log-uniform 0.25..2, redrawn at each env reset).
+# Labels don't depend on the policy, so this only widens the training state distribution: it covers both deploy
+# settings (τ=0.25 full table, τ=1 shop 32) without the pair starvation of training at τ=0.25 everywhere.
+env:
+  shop_mode: uniform
+  n_range: [4, 64]
+  T_range: [4, 300]
+  budget_full_range: [0.5, 200.0]
+  B_range: [20, 1200]
+  p_cap: 0.5
+train:
+  n_envs: 256
+  iters: 100000
+  pair_low: 0.3
+  temperature_range: [0.25, 2.0]

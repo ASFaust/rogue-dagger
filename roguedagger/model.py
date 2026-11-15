@@ -82,8 +82,10 @@ def pairwise_loss(scores: torch.Tensor, values: torch.Tensor, valid: torch.Tenso
 
 def sample_action(scores: torch.Tensor, valid: torch.Tensor, temperature: float = 1.0, greedy: bool = False,
                   generator: torch.Generator | None = None):
-    """Multinomial over softmax(scores / T) restricted to valid -> (action [E], entropy [E])."""
-    logits = (scores / max(temperature, 1e-8)).masked_fill(~valid, float("-inf"))
+    """Multinomial over softmax(scores / T) restricted to valid -> (action [E], entropy [E]).
+    temperature: a float, or a tensor [E] with one temperature per env."""
+    t = temperature.clamp_min(1e-8)[:, None] if torch.is_tensor(temperature) else max(temperature, 1e-8)
+    logits = (scores / t).masked_fill(~valid, float("-inf"))
     p = torch.softmax(logits, -1)
     ent = -(p * torch.log(p.clamp_min(1e-12))).sum(-1)
     if greedy:

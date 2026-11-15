@@ -35,7 +35,7 @@ DEFAULTS = {
     "model": {"d_model": 256, "n_layers": 6, "n_heads": 8, "d_ff": 1024, "readout": "token"},
     "train": {
         "n_envs": 256, "iters": 100_000, "lr": 3e-4, "wd": 0.01, "warmup": 1000,
-        "grad_clip": 1.0, "temperature": 1.0, "h_start": 1.0, "h_end": 1.0,
+        "grad_clip": 1.0, "temperature": 1.0, "temperature_range": None, "h_start": 1.0, "h_end": 1.0,
         "amp": True, "label_past": True, "pair_low": 1.0, "n_horizons": 1, "log_every": 50, "ckpt_every": 5000, "eval_every": 5000,
     },
     "eval": {"n_envs": 128, "seed": 1234, "T": 50, "B": 1000, "n": 32, "cap": True,
@@ -170,6 +170,13 @@ def main():
             wandb.log({f"eval/{nm}_final": r["final_best"], f"eval/{nm}_regret": r["regret"]}, step=0)
 
     env = ShopEnv(tc["n_envs"], ecfg, device, seed=cfg["seed"])
+    # Rollout temperature per env (log-uniform in temperature_range), redrawn when the env resets. The labels don't
+    # depend on the policy, so this only widens the state distribution the scorer trains on.
+    tau, draw_tau = None, None
+    if tc.get("temperature_range"):
+        lo, hi = map(float, tc["temperature_range"])
+        draw_tau = lambda n: torch.exp(math.log(lo) + torch.rand(n, device=device) * (math.log(hi) - math.log(lo)))
+        tau = draw_tau(tc["n_envs"])
     ep_stats, t0, hist = [], time.time(), []
     h = (tc["h_start"], tc["h_end"])
     for it in range(1, tc["iters"] + 1):
@@ -218,9 +225,12 @@ def main():
         sched.step()
 
         with torch.no_grad():
-            a, ent = sample_action(s.detach().float(), valid, tc["temperature"])
+            a, ent = sample_action(s.detach().float(), valid, tau if tau is not None else tc["temperature"])
             is_new = a >= r_cur
             out = env.step(to_env_action(a, r_cur, env.R))
+            if tau is not None and out["done"].any():
+                de = out["done"].nonzero()[:, 0]
+                tau[de] = draw_tau(len(de))
         if out["done"].any():
             ep_stats.append({k: out[k].float().cpu() for k in ("final_best", "oracle", "n_runs", "n_new", "B", "T", "n")})
         hist.append(torch.stack([loss.detach(), acc, npair, ent.mean(), is_new.float().mean(), gn,
