@@ -135,6 +135,11 @@ See [BACKLOG.md](BACKLOG.md) for what is done and what is open.
 
 ## Results so far (2026-11-12, work in progress)
 
+> **Seed noise (2026-11-15):** retraining the same config with another seed changes results by up to 0.017 (TaskSet),
+> 0.013 (PD1) and 0.005 (LCBench), and is "significant" under the task-level CIs below. Those CIs don't include
+> training-seed variance, so single-seed differences of that size are not evidence. `wide` seed 1 is worse than
+> FT-PFN on PD1 (0.0229); `wide-focus03` beats FT-PFN on PD1 with both seeds (0.0059, 0.0117). Details: docs/journal.md.
+
 Protocol from the ifBO paper: 1000 steps per task, 10 seeds, the first config
 random. Regret is normalised by the table's best and worst value (stricter than
 the paper's normalisation across algorithms). Numbers are mean final regret,

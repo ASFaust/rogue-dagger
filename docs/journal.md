@@ -9,6 +9,10 @@ difference with a 95 % bootstrap CI over tasks; full table = the whole unseen ta
 
 ## Key findings so far
 
+> **Caveat (2026-11-15):** training-seed noise is about as large as most of the differences below. Every CI here is a
+> bootstrap over tasks for one trained model; none includes training-seed variance. Findings 1 and 3 are being re-checked
+> with seed replicates (see the 2026-11-15 night results entry). Findings 2 and 4 rest on effects far larger than seed noise.
+
 1. **The pairwise (DAgger-like) scorer is competitive with FT-PFN.** `wide-v1` at τ=0.25 on the full table is
    better than FT-PFN on PD1 (0.0098 vs 0.0151), on par on TaskSet (0.062 vs 0.053, n.s.), and behind on LCBench
    (0.016 vs 0.008). Pair weighting 0.3 (`wide-focus03-v1`) brings PD1 to 0.0059.
@@ -168,3 +172,36 @@ Design discussion with the user, no runs. Each idea has its own file in [future-
   prior. Gated on a held-out comparison of BT vs Thurstone heads.
 - **Real-curve training** ([real-curve-training.md](future-ideas/real-curve-training.md)): the two ways forward
   from key finding 2, and the data for each.
+
+## 2026-11-15: Night results. Seed noise is as large as the effects we've been reading
+
+Seed-1 replicates, same config, only `seed` changed. Paired vs seed 0, full table, τ=0.25 (positive = seed 1 better):
+
+| Family | `wide` s1 vs s0 | `wide-focus03` s1 vs s0 |
+|---|---|---|
+| TaskSet | 0.055 vs 0.062, +0.007 [−0.003, +0.018] | 0.047 vs 0.064, **+0.017 [+0.004, +0.033]** |
+| PD1 | 0.0229 vs 0.0098, **−0.013 [−0.023, −0.005]** | 0.0117 vs 0.0059, **−0.006 [−0.009, −0.002]** |
+| LCBench | 0.0209 vs 0.0162, −0.005 [−0.011, +0.000] | 0.0130 vs 0.0140, +0.001 [−0.002, +0.004] |
+
+- **Identical configs give "significant" differences.** The task-bootstrap CI doesn't cover training noise. Seed-to-seed
+  differences reach about 0.017 on TaskSet, 0.013 on PD1 and 0.005 on LCBench. Most variant effects we recorded
+  (0.002–0.013) are inside that range.
+- **The PD1 headline isn't robust for `wide`:** seed 1 is worse than FT-PFN (0.0229 vs 0.0151). For `wide-focus03`
+  both seeds beat FT-PFN on PD1 (0.0059, 0.0117) and both are behind on LCBench (0.014, 0.013 vs 0.0076). TaskSet
+  straddles FT-PFN (0.064, 0.047 vs 0.053).
+- **The 2026-11-14 PD1 diagnosis was mostly seed noise.** The seed-1 replicate of `wide` also loses mainly on the
+  long-curve, low-budget PD1 tasks (corr with log(budget/T) = 0.57; −0.046 on the 6 tasks with < 5 full trainings
+  vs −0.004 on the rest). Those 6 tasks are where training seeds disagree most, so "big shops hurt long-curve PD1
+  tasks" can't be separated from "those tasks are high-variance". The deploy-shop-size result still holds (it's
+  within one model).
+- **Variants** (vs `wide-focus03-v1` seed 0, full table):
+  - `wide-focus03-longT-v1` (T up to 1500): PD1 −0.017 [−0.028, −0.009], also on the long tasks (−0.049);
+    LCBench −0.004; TaskSet ≈. Extending T didn't help the long-curve tasks; if anything it hurt. Borderline against
+    seed noise.
+  - `wide-focus03-mid-v1` (shops 4..128): PD1 −0.003 (n.s.), LCBench −0.007 [−0.011, −0.003], TaskSet ≈.
+    Inside or near seed noise.
+- **Consequences:**
+  - Comparisons need several training seeds per config, and a CI that resamples seeds as well as tasks.
+  - The "sliding along a barrier" reading (key finding 3) may be partly noise: variants may move results less than
+    it seemed. That needs re-checking with seeds before acting on it.
+  - Seed-2 replicates of `wide` and `wide-focus03` are now running (GPUs 5, 6) to get 3 seeds of each reference.
