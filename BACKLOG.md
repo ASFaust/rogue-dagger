@@ -48,7 +48,7 @@
 - [x] Table of all models: docs/results.md via `scripts/results_table.py`
 - [x] Crossing equality term (variant 1), 2v2 vs `wide-readout`: full table n.s., shop 32 worse (TaskSet −0.021, PD1 −0.012); journal
 - [x] Per-env rollout temperature: both worse than fixed τ=1. `wide-focus03-tmixcold-v1` (0.1..1): TaskSet −0.036, LCBench −0.013, half the pairs. `wide-focus03-tmix-v1` (0.25..2): TaskSet −0.049, PD1 shop-32 −0.026. See journal
-- [~] Seed-1 replicate of `wide-focus03-big-v1` (GPU 4): does the big-shop PD1 loss survive seed noise?
+- [x] Seed-1 replicate of `wide-focus03-big-v1`: the big-shop PD1 loss survives seed noise (−0.016 vs focus03, CI [−0.030, −0.007]); LCBench +0.001 n.s.
 ## RL extension (docs/rl.md) — SHELVED 2026-11-14, reasons in docs/rl.md
 - [x] PPO + GAE trainer (`roguedagger/rl.py`) starting from a pairwise checkpoint; separate critic initialised from its trunk; critic-only warmup; pairwise BCE as aux loss
 - [x] Reward: per-step decrease of log normalised regret (pool of 512 random configs per task), always >= 0

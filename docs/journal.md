@@ -422,3 +422,20 @@ The prior ranks pairwise models fairly well for TaskSet, moderately for LCBench,
 inversely (PD1 strongly). Caveat: one noisy eval per model and a single synthetic spec (T 50) that doesn't match
 PD1's long curves. Next: matched synthetic twins (same d, T, budget, shop per real task) to separate spec mismatch
 from curve mismatch.
+
+## 2026-11-15: Big-shop training, second seed: the PD1 loss is real
+
+`wide-focus03-big-s1` (seed 1 of `wide-focus03-big-v1`, train shops 4..256) finished. Two big-shop seeds vs the three
+focus03 seeds (`scripts/compare_seeds.py`, gain = focus03 regret − big regret):
+
+| | TaskSet | PD1 | LCBench |
+|---|---|---|---|
+| full table, τ 0.25 | +0.002 [−0.030, +0.031] | **−0.016 [−0.030, −0.007]** | +0.001 [−0.001, +0.004] |
+| shop 32, τ 1 | **−0.022 [−0.041, −0.004]** | −0.017 [−0.045, +0.005] | −0.001 [−0.004, +0.003] |
+
+- PD1: both big seeds (0.0205, 0.0301) are worse than all three focus03 seeds (0.0059–0.0117), worse on 23/28 tasks.
+  The earlier single-seed finding (big shops hurt PD1, mostly on long-curve, low-budget tasks) stands.
+- LCBench: the earlier +0.005 gain of big over `wide-v1` shrinks to +0.001 n.s. against focus03's three seeds.
+- TaskSet full table: the two big seeds are 0.0735 and 0.0334, the largest seed gap seen on TaskSet; no conclusion.
+
+Conclusion: training on shops up to 256 doesn't pay off; keep shops 4..64. Closes the backlog item.
