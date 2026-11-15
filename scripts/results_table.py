@@ -74,7 +74,7 @@ REGISTRY = [
 ]
 
 # eval tags of runs that are training / queued: their missing cells show "running" (all others show "–")
-PENDING = {"wreads1", "wrcross", "wrcrosss1", "wrsides", "wrsidess1", "wf03thu", "wf03thus1", "wf03bigs1"}
+PENDING = {"wrsides", "wrsidess1", "wf03thu", "wf03thus1", "wf03bigs1"}
 
 
 def path(fam, tag):

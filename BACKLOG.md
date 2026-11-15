@@ -46,7 +46,7 @@
 - [~] Crossing variant 2 (`cross_mode: sides`, labels on both sides of the crossing): `wide-readout-cross-sides-v1`/`-s1` queued (GPUs 3, 4)
 - [~] Thurstone readout from scratch + Thompson policy (`model.pair_model: thurstone`): `wide-focus03-thurstone-v1`/`-s1` queued (GPUs 5, 6)
 - [x] Table of all models: docs/results.md via `scripts/results_table.py`
-- [~] Crossing equality term (MLP readout), ablation vs wide-readout-v1 (docs/future-ideas/crossing-horizons.md): `train.cross_weight`, `wide-readout-cross-v1` training on GPU 3 (eval tag `wrcross`); seed-1 replicates `wide-readout-s1` (GPU 5) and `wide-readout-cross-s1` (GPU 6) for a 2v2 comparison
+- [x] Crossing equality term (variant 1), 2v2 vs `wide-readout`: full table n.s., shop 32 worse (TaskSet −0.021, PD1 −0.012); journal
 - [x] Per-env rollout temperature: both worse than fixed τ=1. `wide-focus03-tmixcold-v1` (0.1..1): TaskSet −0.036, LCBench −0.013, half the pairs. `wide-focus03-tmix-v1` (0.25..2): TaskSet −0.049, PD1 shop-32 −0.026. See journal
 - [~] Seed-1 replicate of `wide-focus03-big-v1` (GPU 4): does the big-shop PD1 loss survive seed noise?
 ## RL extension (docs/rl.md) — SHELVED 2026-11-14, reasons in docs/rl.md

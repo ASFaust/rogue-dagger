@@ -378,3 +378,27 @@ Shop 32, τ=1, focus03 vs wide: TaskSet +0.000, PD1 +0.011 [−0.001, +0.025] (1
   model with the eval tags of its seeds; gains vs FT-PFN with the seed-aware bootstrap).
 - Queue (`runs/logs/queue_thurst_sides.sh`): each starts when the GPU's current chain has written its evals.
   GPU 3: sides seed 0; GPU 4: sides seed 1; GPU 5: Thurstone seed 0; GPU 6: Thurstone seed 1.
+
+## 2026-11-15: Crossing tie term (variant 1): no gain on the full table, worse on shop 32
+
+2 seeds each: `wide-readout-v1`, `wide-readout-s1` vs `wide-readout-cross-v1`, `wide-readout-cross-s1`
+(`compare_seeds.py`, gain of cross over readout, positive = better):
+
+| Setting | TaskSet | PD1 | LCBench |
+|---|---|---|---|
+| full, τ 0.25 | +0.002 [−0.018, +0.023] | +0.002 [−0.006, +0.013] | −0.001 [−0.014, +0.014] |
+| shop 32, τ 1 | **−0.021 [−0.043, −0.002]**, 4/24 | **−0.012 [−0.020, −0.005]**, 3/28 | −0.002 (n.s.) |
+
+Per seed (readout / cross), full table: TaskSet 0.047, 0.037 / 0.048, 0.032; PD1 0.012, 0.020 / 0.010, 0.017;
+LCBench 0.024, 0.012 / 0.025, 0.014. Shop 32: TaskSet 0.083, 0.060 / 0.094, 0.089; PD1 0.049, 0.049 / 0.061, 0.060.
+
+- Full table: nothing. The two readout seeds alone differ by 0.012 on LCBench and 0.008 on PD1.
+- Shop 32: both cross seeds are worse than both readout seeds on TaskSet and PD1.
+- Not from run counts: shop-32 runs started per task are about the same (117-163 vs 130-155). Training entropy at τ 1
+  is slightly higher with the tie term (3.26 vs 3.16), so the scores are a bit flatter, which a τ=1 deploy would
+  feel more than τ=0.25. Plausible but not shown.
+- Side note: the readout model's own seed spread (LCBench 0.024 vs 0.012) is the largest seen so far, so the
+  single-seed `wide-readout-v1` results in the README (TaskSet best, LCBench worst) were partly seed luck.
+
+Conclusion: the tie term doesn't help. Variant 2 (`sides`) is training; it differs in that it also trains the
+direction of the margin's change across the crossing.

@@ -29,10 +29,10 @@ Deploy settings: **full** = the whole table as the shop (ifBO's setting) at the 
 | `wide-t025-v1` | 1 | training rollouts at τ 0.25 | 0.25 | 0.090 | 0.0141 | 0.0198 | 0.128 | 0.0468 | 0.0288 |
 | `wide-hanneal-v1` | 1 | horizon annealed during the episode | 0.25 | 0.059 | 0.0079 | 0.0165 | 0.103 | 0.0500 | 0.0242 |
 | `wide-future-v1` | 1 | label: future window only (no past) | 0.25 | 0.052 | 0.0116 | 0.0198 | 0.094 | 0.0334 | 0.0271 |
-| `wide-readout-v1` | 1/2 | MLP readout (horizon outside the trunk), 4 label horizons per step | 0.25 | 0.046 | 0.0122 | 0.0238 | 0.083 | 0.0490 | 0.0203 |
+| `wide-readout-v1` | 2/2 | MLP readout (horizon outside the trunk), 4 label horizons per step | 0.25 | 0.041 | 0.0162 | 0.0179 | 0.071 | 0.0490 | 0.0189 |
 | `wide-v1` @55k | 1 | early checkpoint | 0.25 | 0.170 | 0.0113 | – | 0.142 | 0.0241 | – |
 | **Pairwise, variants of `wide-readout`** | | | | | | | | | |
-| `wide-readout-cross` | 0/2 | + tie target at label crossings (crossing idea, variant 1) | 0.25 | running | running | running | running | running | running |
+| `wide-readout-cross` | 2/2 | + tie target at label crossings (crossing idea, variant 1) | 0.25 | 0.040 | 0.0138 | 0.0193 | 0.092 | 0.0605 | 0.0205 |
 | `wide-readout-cross-sides` | 0/2 | + ordinary labels at both horizons around each crossing (variant 2) | 0.25 | running | running | running | running | running | running |
 | **Pairwise, variants of `wide-focus03`** | | | | | | | | | |
 | `wide-focus03-big` | 1/2 | shops 4..256 | 0.25 | 0.073 | 0.0205 | 0.0116 | 0.106 | 0.0343 | 0.0228 |
@@ -74,8 +74,9 @@ so it is too narrow.
 | `wide-t025-v1` | 1 | -0.0370 [-0.0635, -0.0150] ▼ (5/24) | +0.0009 [-0.0022, +0.0041] (11/28) | -0.0122 [-0.0176, -0.0074] ▼ (3/35) |
 | `wide-hanneal-v1` | 1 | -0.0057 [-0.0217, +0.0105] (10/24) | +0.0071 [+0.0023, +0.0131] ▲ (13/28) | -0.0089 [-0.0140, -0.0045] ▼ (6/35) |
 | `wide-future-v1` | 1 | +0.0010 [-0.0161, +0.0186] (13/24) | +0.0035 [-0.0001, +0.0071] (16/28) | -0.0122 [-0.0193, -0.0060] ▼ (6/35) |
-| `wide-readout-v1` | 1/2 | +0.0069 [-0.0144, +0.0279] (12/24) | +0.0028 [-0.0003, +0.0063] (14/28) | -0.0161 [-0.0344, -0.0035] ▼ (9/35) |
+| `wide-readout-v1` | 2/2 | +0.0119 [-0.0082, +0.0315] (13/24) | -0.0011 [-0.0101, +0.0050] (12/28) | -0.0103 [-0.0263, -0.0025] ▼ (8/35) |
 | `wide-v1` @55k | 1 | -0.1167 [-0.1609, -0.0787] ▼ (0/24) | +0.0038 [-0.0051, +0.0128] (14/28) | – |
+| `wide-readout-cross` | 2/2 | +0.0135 [-0.0104, +0.0363] (13/24) | +0.0013 [-0.0053, +0.0084] (14/28) | -0.0117 [-0.0242, -0.0034] ▼ (7/35) |
 | `wide-focus03-big` | 1/2 | -0.0201 [-0.0436, +0.0015] (9/24) | -0.0055 [-0.0102, -0.0010] ▼ (6/28) | -0.0039 [-0.0065, -0.0016] ▼ (5/35) |
 | `wide-focus03-mid-v1` | 1 | -0.0127 [-0.0277, +0.0017] (8/24) | +0.0064 [+0.0029, +0.0107] ▲ (18/28) | -0.0131 [-0.0196, -0.0075] ▼ (6/35) |
 | `wide-focus03-longT-v1` | 1 | -0.0142 [-0.0317, +0.0019] (10/24) | -0.0083 [-0.0153, -0.0022] ▼ (7/28) | -0.0103 [-0.0155, -0.0061] ▼ (3/35) |
@@ -102,5 +103,6 @@ Seed 0 / 1 / 2.
 |---|---|---|---|
 | `wide` | 0.062 / 0.055 / 0.051 | 0.0098 / 0.0229 / 0.0132 | 0.0162 / 0.0209 / 0.0113 |
 | `wide-focus03` | 0.064 / 0.047 / 0.056 | 0.0059 / 0.0117 / 0.0108 | 0.0140 / 0.0130 / 0.0102 |
-| `wide-readout-v1` | 0.046 / … | 0.0122 / … | 0.0238 / … |
+| `wide-readout-v1` | 0.046 / 0.036 | 0.0122 / 0.0201 | 0.0238 / 0.0120 |
+| `wide-readout-cross` | 0.048 / 0.032 | 0.0102 / 0.0174 | 0.0251 / 0.0135 |
 | `wide-focus03-big` | 0.073 / … | 0.0205 / … | 0.0116 / … |
