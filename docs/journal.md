@@ -138,3 +138,13 @@ difference with a 95 % bootstrap CI over tasks; full table = the whole unseen ta
 - **Smaller epoch-curve sets**: Quick-Tune meta-dataset (fine-tuning), NAS-Bench-201, HPOBench FCNet, and the
   surrogates JAHS-Bench-201 and YAHPO.
 - RL stays shelved for now; the user may unshelve it at any time.
+- **Idea (user): a random rollout temperature per env.** Why it fits this method:
+  - The pairwise label (best loss by len+H) doesn't depend on the policy. Mixing τ therefore only changes which
+    states the scorer sees, never what the right answer is.
+  - Training at τ=1 and deploying at 0.25 is itself a train/deploy state mismatch, the thing DAgger-style
+    training is meant to avoid.
+  - `wide-t025-v1` (τ=0.25 everywhere) was worse because the rollouts started half as many runs and gave half
+    as many pairs. A mixture keeps most of the pair supply.
+  
+  Implemented as `train.temperature_range`: log-uniform per env, redrawn at reset. `wide-focus03-tmix-v1` uses
+  τ in 0.25..2 and is queued on GPU 3 after the seed replicate.
