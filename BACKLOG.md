@@ -44,7 +44,7 @@
 - [ ] Calibration on prior pairs: our σ(s_a − s_b) vs FT-PFN histograms under independence
 - [x] BT vs Thurstone head on frozen embeddings, held-out pairs (`scripts/head_test.py`): gate FAILS, Thurstone 0.001-0.008 worse on held-out pairs, σ nearly flat (journal)
 - [~] Crossing variant 2 (`cross_mode: sides`, labels on both sides of the crossing): `wide-readout-cross-sides-v1`/`-s1` queued (GPUs 3, 4)
-- [~] Thurstone readout from scratch + Thompson policy (`model.pair_model: thurstone`): `wide-focus03-thurstone-v1`/`-s1` queued (GPUs 5, 6)
+- [x] Thurstone readout from scratch + Thompson policy (`model.pair_model: thurstone`, 2 seeds): negative at every σ scale, PD1 worse throughout; closed
 - [x] Table of all models: docs/results.md via `scripts/results_table.py`
 - [x] Crossing equality term (variant 1), 2v2 vs `wide-readout`: full table n.s., shop 32 worse (TaskSet −0.021, PD1 −0.012); journal
 - [x] Per-env rollout temperature: both worse than fixed τ=1. `wide-focus03-tmixcold-v1` (0.1..1): TaskSet −0.036, LCBench −0.013, half the pairs. `wide-focus03-tmix-v1` (0.25..2): TaskSet −0.049, PD1 shop-32 −0.026. See journal

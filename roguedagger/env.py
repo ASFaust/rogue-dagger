@@ -97,9 +97,12 @@ class ShopEnv:
         n, c, dev, g = idx.numel(), self.cfg, self.dev, self.gen
         if self.fixed_spec is not None:
             fs = self.fixed_spec
-            self.d[idx] = torch.as_tensor(fs["d"], device=dev).expand(n).long() if "d" in fs else \
+            self.d[idx] = (fs["d"][idx].long() if torch.is_tensor(fs["d"]) else
+                           torch.as_tensor(fs["d"], device=dev).expand(n).long()) if "d" in fs else \
                 torch.randint(c.d_range[0], c.d_range[1] + 1, (n,), device=dev, generator=g)
-            self.T[idx], self.B[idx], self.n[idx] = fs["T"], fs["B"], fs["n"]
+            # values may be scalars or per-row tensors [E] (matched synthetic twins: one real task's spec per row)
+            pick = lambda v: v[idx] if torch.is_tensor(v) else v
+            self.T[idx], self.B[idx], self.n[idx] = pick(fs["T"]), pick(fs["B"]), pick(fs["n"])
             self.cap[idx] = bool(fs.get("cap", False))
             return
         self.d[idx] = torch.randint(c.d_range[0], c.d_range[1] + 1, (n,), device=dev, generator=g)

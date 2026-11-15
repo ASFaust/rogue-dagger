@@ -55,6 +55,10 @@ REGISTRY = [
      "Thurstone (μ, σ) readout from scratch, Thompson-sampling policy (τ = σ scale)", 1.0, 1.0),
     ("Pairwise, variants of `wide-focus03`", "`wide-focus03-thurstone`, σ×0.5", ["wf03thu", "wf03thus1"],
      "same models, Thompson draws at half σ", 0.5, None),
+    ("Pairwise, variants of `wide-focus03`", "`wide-focus03-thurstone`, σ×0.25", ["wf03thu", "wf03thus1"],
+     "same models, σ scale 0.25 (swept on the benchmarks: optimistic)", 0.25, None),
+    ("Pairwise, variants of `wide-focus03`", "`wide-focus03-thurstone`, σ×0.1", ["wf03thu", "wf03thus1"],
+     "same models, σ scale 0.1 (swept on the benchmarks: optimistic)", 0.1, None),
 
     ("Deploy temperature (swept on the benchmarks: optimistic)", "`wide-v1`, τ 0.15", ["wide100k"], "", 0.15, None),
     ("Deploy temperature (swept on the benchmarks: optimistic)", "`wide-v1`, τ 0.1", ["wide100k"], "", 0.1, None),
@@ -74,7 +78,7 @@ REGISTRY = [
 ]
 
 # eval tags of runs that are training / queued: their missing cells show "running" (all others show "–")
-PENDING = {"wrsides", "wrsidess1", "wf03thu", "wf03thus1"}
+PENDING = {"wrsidess1"}
 
 
 def path(fam, tag):

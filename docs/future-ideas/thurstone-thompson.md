@@ -1,7 +1,8 @@
 # Thurstone readout with Thompson-sampling policy
 
-Status: gate failed on frozen embeddings (2026-11-15, see the journal): Thurstone heads don't beat BT on held-out
-pairs and learn a nearly flat σ. Not queued. Origin: discussion with the user, 2026-11-15. Motivation: the Bradley–Terry limit in
+Status: tested, negative, closed (2026-11-15, see the journal). The gate failed on frozen embeddings; at the user's
+request it was then trained from scratch (2 seeds, `model.pair_model: thurstone`): no σ scale (1, 0.5, 0.25, 0.1)
+beats `wide-focus03` on any benchmark, PD1 is worse at every scale. Origin: discussion with the user, 2026-11-15. Motivation: the Bradley–Terry limit in
 [implicit-distribution.md](implicit-distribution.md). Gate: test 3 there.
 
 ## Idea

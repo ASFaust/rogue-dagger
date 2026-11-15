@@ -33,15 +33,17 @@ Deploy settings: **full** = the whole table as the shop (ifBO's setting) at the 
 | `wide-v1` @55k | 1 | early checkpoint | 0.25 | 0.170 | 0.0113 | – | 0.142 | 0.0241 | – |
 | **Pairwise, variants of `wide-readout`** | | | | | | | | | |
 | `wide-readout-cross` | 2/2 | + tie target at label crossings (crossing idea, variant 1) | 0.25 | 0.040 | 0.0138 | 0.0193 | 0.092 | 0.0605 | 0.0205 |
-| `wide-readout-cross-sides` | 0/2 | + ordinary labels at both horizons around each crossing (variant 2) | 0.25 | running | running | running | running | running | running |
+| `wide-readout-cross-sides` | 2/2 | + ordinary labels at both horizons around each crossing (variant 2) | 0.25 | 0.051 | 0.0251 | 0.0172 | 0.076 | 0.0538 | 0.0226 |
 | **Pairwise, variants of `wide-focus03`** | | | | | | | | | |
 | `wide-focus03-big` | 2/2 | shops 4..256 | 0.25 | 0.053 | 0.0253 | 0.0111 | 0.107 | 0.0489 | 0.0231 |
 | `wide-focus03-mid-v1` | 1 | shops 4..128 | 0.25 | 0.066 | 0.0086 | 0.0207 | 0.096 | 0.0468 | 0.0213 |
 | `wide-focus03-longT-v1` | 1 | T 4..1500 | 0.25 | 0.068 | 0.0234 | 0.0179 | 0.097 | 0.0527 | 0.0245 |
 | `wide-focus03-tmix-v1` | 1 | rollout τ per env, log-uniform 0.25..2 | 0.25 | 0.104 | 0.0127 | 0.0107 | 0.095 | 0.0560 | 0.0195 |
 | `wide-focus03-tmixcold-v1` | 1 | rollout τ per env, log-uniform 0.1..1 | 0.25 | 0.092 | 0.0112 | 0.0268 | 0.105 | 0.0292 | 0.0256 |
-| `wide-focus03-thurstone` | 0/2 | Thurstone (μ, σ) readout from scratch, Thompson-sampling policy (τ = σ scale) | 1.0 | running | running | running | running | running | running |
-| `wide-focus03-thurstone`, σ×0.5 | 0/2 | same models, Thompson draws at half σ | 0.5 | running | running | running | – | – | – |
+| `wide-focus03-thurstone` | 2/2 | Thurstone (μ, σ) readout from scratch, Thompson-sampling policy (τ = σ scale) | 1.0 | 0.173 | 0.0609 | 0.0260 | 0.073 | 0.0558 | 0.0177 |
+| `wide-focus03-thurstone`, σ×0.5 | 2/2 | same models, Thompson draws at half σ | 0.5 | 0.077 | 0.0355 | 0.0137 | – | – | – |
+| `wide-focus03-thurstone`, σ×0.25 | 2/2 | same models, σ scale 0.25 (swept on the benchmarks: optimistic) | 0.25 | 0.062 | 0.0215 | 0.0158 | – | – | – |
+| `wide-focus03-thurstone`, σ×0.1 | 2/2 | same models, σ scale 0.1 (swept on the benchmarks: optimistic) | 0.1 | 0.128 | 0.0167 | 0.0243 | – | – | – |
 | **Deploy temperature (swept on the benchmarks: optimistic)** | | | | | | | | | |
 | `wide-v1`, τ 0.15 | 1 |  | 0.15 | 0.051 | 0.0069 | 0.0181 | – | – | – |
 | `wide-v1`, τ 0.1 | 1 |  | 0.1 | 0.051 | 0.0058 | 0.0218 | – | – | – |
@@ -77,11 +79,16 @@ so it is too narrow.
 | `wide-readout-v1` | 2/2 | +0.0119 [-0.0082, +0.0315] (13/24) | -0.0011 [-0.0101, +0.0050] (12/28) | -0.0103 [-0.0263, -0.0025] ▼ (8/35) |
 | `wide-v1` @55k | 1 | -0.1167 [-0.1609, -0.0787] ▼ (0/24) | +0.0038 [-0.0051, +0.0128] (14/28) | – |
 | `wide-readout-cross` | 2/2 | +0.0135 [-0.0104, +0.0363] (13/24) | +0.0013 [-0.0053, +0.0084] (14/28) | -0.0117 [-0.0242, -0.0034] ▼ (7/35) |
+| `wide-readout-cross-sides` | 2/2 | +0.0027 [-0.0189, +0.0251] (12/24) | -0.0101 [-0.0186, -0.0025] ▼ (11/28) | -0.0096 [-0.0162, -0.0044] ▼ (5/35) |
 | `wide-focus03-big` | 2/2 | -0.0000 [-0.0355, +0.0325] (12/24) | -0.0102 [-0.0238, -0.0024] ▼ (5/28) | -0.0034 [-0.0058, -0.0012] ▼ (6/35) |
 | `wide-focus03-mid-v1` | 1 | -0.0127 [-0.0277, +0.0017] (8/24) | +0.0064 [+0.0029, +0.0107] ▲ (18/28) | -0.0131 [-0.0196, -0.0075] ▼ (6/35) |
 | `wide-focus03-longT-v1` | 1 | -0.0142 [-0.0317, +0.0019] (10/24) | -0.0083 [-0.0153, -0.0022] ▼ (7/28) | -0.0103 [-0.0155, -0.0061] ▼ (3/35) |
 | `wide-focus03-tmix-v1` | 1 | -0.0507 [-0.0908, -0.0163] ▼ (7/24) | +0.0024 [-0.0010, +0.0060] (13/28) | -0.0031 [-0.0057, -0.0007] ▼ (9/35) |
 | `wide-focus03-tmixcold-v1` | 1 | -0.0382 [-0.0533, -0.0235] ▼ (3/24) | +0.0039 [+0.0002, +0.0075] ▲ (16/28) | -0.0192 [-0.0284, -0.0112] ▼ (2/35) |
+| `wide-focus03-thurstone` | 2/2 | -0.1196 [-0.1691, -0.0776] ▼ (3/24) | -0.0458 [-0.0737, -0.0236] ▼ (2/28) | -0.0183 [-0.0318, -0.0087] ▼ (3/35) |
+| `wide-focus03-thurstone`, σ×0.5 | 2/2 | -0.0231 [-0.0544, +0.0066] (7/24) | -0.0205 [-0.0321, -0.0104] ▼ (5/28) | -0.0061 [-0.0114, -0.0016] ▼ (7/35) |
+| `wide-focus03-thurstone`, σ×0.25 | 2/2 | -0.0088 [-0.0369, +0.0181] (9/24) | -0.0064 [-0.0137, +0.0003] (10/28) | -0.0082 [-0.0169, -0.0020] ▼ (8/35) |
+| `wide-focus03-thurstone`, σ×0.1 | 2/2 | -0.0741 [-0.1222, -0.0290] ▼ (2/24) | -0.0017 [-0.0051, +0.0020] (10/28) | -0.0166 [-0.0352, -0.0041] ▼ (5/35) |
 | `wide-v1`, τ 0.15 | 1 | +0.0026 [-0.0126, +0.0181] (11/24) | +0.0082 [+0.0039, +0.0133] ▲ (16/28) | -0.0105 [-0.0162, -0.0055] ▼ (7/35) |
 | `wide-v1`, τ 0.1 | 1 | +0.0026 [-0.0098, +0.0154] (13/24) | +0.0092 [+0.0041, +0.0153] ▲ (17/28) | -0.0141 [-0.0225, -0.0073] ▼ (5/35) |
 | `base-v1` @65k | 1 | -0.0641 [-0.1012, -0.0362] ▼ (4/24) | – | – |
@@ -105,4 +112,9 @@ Seed 0 / 1 / 2.
 | `wide-focus03` | 0.064 / 0.047 / 0.056 | 0.0059 / 0.0117 / 0.0108 | 0.0140 / 0.0130 / 0.0102 |
 | `wide-readout-v1` | 0.046 / 0.036 | 0.0122 / 0.0201 | 0.0238 / 0.0120 |
 | `wide-readout-cross` | 0.048 / 0.032 | 0.0102 / 0.0174 | 0.0251 / 0.0135 |
+| `wide-readout-cross-sides` | 0.052 / 0.050 | 0.0251 / … | 0.0155 / 0.0190 |
 | `wide-focus03-big` | 0.073 / 0.033 | 0.0205 / 0.0301 | 0.0116 / 0.0106 |
+| `wide-focus03-thurstone` | 0.163 / 0.183 | 0.0538 / 0.0680 | 0.0209 / 0.0310 |
+| `wide-focus03-thurstone`, σ×0.5 | 0.083 / 0.070 | 0.0344 / 0.0367 | 0.0121 / 0.0154 |
+| `wide-focus03-thurstone`, σ×0.25 | 0.066 / 0.059 | 0.0251 / 0.0179 | 0.0121 / 0.0194 |
+| `wide-focus03-thurstone`, σ×0.1 | 0.152 / 0.103 | 0.0164 / 0.0171 | 0.0146 / 0.0340 |

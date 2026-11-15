@@ -439,3 +439,31 @@ focus03 seeds (`scripts/compare_seeds.py`, gain = focus03 regret − big regret)
 - TaskSet full table: the two big seeds are 0.0735 and 0.0334, the largest seed gap seen on TaskSet; no conclusion.
 
 Conclusion: training on shops up to 256 doesn't pay off; keep shops 4..64. Closes the backlog item.
+
+## 2026-11-15: Thurstone readout from scratch: negative, closed
+
+User's request: train the (μ, σ) Thurstone readout with the Thompson policy from scratch before discarding it
+(`wide-focus03-thurstone-v1`/`-s1`, base `wide-focus03`, train σ scale 1). Two seeds vs the three focus03 seeds
+(full table, focus03 at τ 0.25; gain = focus03 − Thurstone, seed-aware CIs):
+
+| σ scale | TaskSet | PD1 | LCBench |
+|---|---|---|---|
+| 1.0 | 0.173 (−0.117 ▼) | 0.061 (−0.051 ▼) | 0.026 (−0.014 ▼) |
+| 0.5 | 0.077 (−0.021) | 0.036 (−0.026 ▼) | 0.0137 (−0.001) |
+| 0.25 | 0.062 (−0.007) | 0.022 (−0.012 ▼) | 0.0158 (−0.003) |
+| 0.1 | 0.128 (−0.072 ▼) | 0.017 (−0.007 ▼) | 0.024 (−0.012) |
+| focus03 | 0.056 | 0.0095 | 0.0124 |
+
+Shop 32 at σ scale 1: TaskSet 0.073 vs 0.085 (+0.013 n.s.), PD1 0.056 vs 0.032 (−0.024 ▼), LCBench 0.018 vs 0.023
+(+0.005 n.s.).
+
+- Even with σ picked on the benchmarks (optimistic), no setting beats focus03 anywhere; the best (0.25) ties on
+  TaskSet and LCBench and loses PD1. TaskSet and PD1 want different σ scales (0.25 vs 0.1).
+- What σ learned (256 prior episodes, policy at scale 1): not flat this time (coefficient of variation over the
+  items of a state 0.30-0.32, unlike the frozen-embedding heads), larger for shop items than for runs (0.24-0.27 vs
+  0.34-0.41, sensible), but strongly tied to μ (|corr(μ, σ)| 0.75), so it is largely a function of the score. Mean
+  σ ≈ the spread of μ within a state, so Thompson draws at scale 1 reorder items a lot: training rollouts start
+  about 17 runs per budget vs about 10 for focus03.
+- The constant-σ ablation planned for the case of a gain isn't needed.
+
+Conclusion: Thurstone + Thompson doesn't beat Bradley–Terry + softmax; closed (future-ideas/thurstone-thompson.md).
