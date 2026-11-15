@@ -33,7 +33,7 @@
 - [x] `wide-focus03-longT-v1`: T_range 4..1500: PD1 −0.017, LCBench −0.004; no help on long-curve tasks
 - [x] `wide-focus03-mid-v1`: shops 4..128: LCBench −0.007, rest within seed noise
 - [x] Seed noise: seed-1 replicates differ from seed 0 by up to 0.017 TaskSet / 0.013 PD1 / 0.005 LCBench, "significant" under task CIs (journal 2026-11-15)
-- [~] Seed-2 replicates `wide-s2`, `wide-focus03-s2` (3 seeds per reference)
+- [x] Seed-2 replicates `wide-s2`, `wide-focus03-s2`: 3 seeds per reference; headline in README (focus03 beats FT-PFN on PD1, ties TaskSet, behind on LCBench)
 - [x] Seed-aware comparison: `scripts/compare_seeds.py` (bootstrap over tasks and training seeds)
 - [x] Deploy-time shop size on PD1 (`--n-shop 64/128`, τ 0.25): learned behaviour, not a deploy mismatch. `wide-focus03-big-v1`
   is 0.0205 at shop 64, 128 and the full table alike; `wide-focus03-v1` is 0.0077 / 0.0070 / 0.0059. At shop 64 the big
@@ -43,7 +43,7 @@
 - [x] Probe frozen embeddings for future best loss and its spread: label R² 0.33-0.40 (linear), spread weakly represented (corr 0.20 vs 0.07 item-type baseline); journal
 - [ ] Calibration on prior pairs: our σ(s_a − s_b) vs FT-PFN histograms under independence
 - [x] BT vs Thurstone head on frozen embeddings, held-out pairs (`scripts/head_test.py`): gate FAILS, Thurstone 0.001-0.008 worse on held-out pairs, σ nearly flat (journal)
-- [~] Crossing equality term (MLP readout), ablation vs wide-readout-v1 (docs/future-ideas/crossing-horizons.md): `train.cross_weight`, `wide-readout-cross-v1` training on GPU 3 (eval tag `wrcross`)
+- [~] Crossing equality term (MLP readout), ablation vs wide-readout-v1 (docs/future-ideas/crossing-horizons.md): `train.cross_weight`, `wide-readout-cross-v1` training on GPU 3 (eval tag `wrcross`); seed-1 replicates `wide-readout-s1` (GPU 5) and `wide-readout-cross-s1` (GPU 6) for a 2v2 comparison
 - [x] Per-env rollout temperature: both worse than fixed τ=1. `wide-focus03-tmixcold-v1` (0.1..1): TaskSet −0.036, LCBench −0.013, half the pairs. `wide-focus03-tmix-v1` (0.25..2): TaskSet −0.049, PD1 shop-32 −0.026. See journal
 - [~] Seed-1 replicate of `wide-focus03-big-v1` (GPU 4): does the big-shop PD1 loss survive seed noise?
 ## RL extension (docs/rl.md) — SHELVED 2026-11-14, reasons in docs/rl.md
