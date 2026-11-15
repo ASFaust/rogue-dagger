@@ -265,3 +265,33 @@ loses more on TaskSet, so pair count alone doesn't explain it.
 
 Conclusion: both τ mixes are worse. Training at a fixed τ=1 stays. The per-env temperature code
 (`train.temperature_range`) stays in as an option, off by default.
+
+## 2026-11-15: BT vs Thurstone on frozen embeddings: the gate fails
+
+Test 3 of [future-ideas/implicit-distribution.md](future-ideas/implicit-distribution.md), `scripts/head_test.py`
+(log: `runs/logs/head_test2.log`). Freeze a model, roll out its own policy on the prior (τ=1, 256 envs, 240
+snapshots, up to 48 items per state), fit fresh heads on the final per-item embeddings. Env rows split 2:1:1 into
+train / validation (early stopping) / test. Test = pairwise BCE with pair weights 0.3 as in training (`bce_w`).
+
+| Model | own head | BT refit | BT from own | Thurstone | Thurstone from own |
+|---|---|---|---|---|---|
+| `wide-focus03-v1` | 0.5684 | **0.5665** | 0.5678 | 0.5739 | 0.5711 |
+| `wide-v1` | 0.5956 | **0.5826** | (= own) | 0.5993 | 0.6021 |
+| `wide-readout-v1`* | n/a | **0.5630** | n/a | 0.5640 | n/a |
+
+\* MLP readout: the stored embeddings don't include the global features, so both heads lack horizon/budget input.
+"From own": initialised from the trained head (Thurstone: μ = trained score, constant σ ≈ 1.2 so it starts equal
+to the BT head). Test accuracy is 0.72-0.74 for every head.
+
+- Thurstone is never better on held-out pairs (0.001-0.008 worse), even when it starts from the BT solution. On the
+  training rows it fits slightly better, so the extra freedom only overfits: the user's identifiability concern.
+- The learned σ is almost flat (relative σ 0.97-1.03 by item type for `wide-focus03`, exactly 1.000 for `wide-v1`).
+  Only `wide-readout-v1` shows the expected trend, weakly (shop items 0.97, short runs 1.03, long runs 0.91).
+- Refit BT heads gain little over the trained head (≤ 0.013), so the embeddings, not the head, set the limit.
+
+Caveat: the embeddings were trained under a BT readout and may not carry spread information that a Thurstone
+readout would need; an end-to-end Thurstone model could differ. Test 1 (probing the embeddings for the spread of
+the future best loss) would tell whether that information is there.
+
+Conclusion: the gate for [future-ideas/thurstone-thompson.md](future-ideas/thurstone-thompson.md) fails on frozen
+embeddings. No end-to-end Thurstone ablation unless test 1 shows the spread is represented.

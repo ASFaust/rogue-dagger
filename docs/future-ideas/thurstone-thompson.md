@@ -1,6 +1,7 @@
 # Thurstone readout with Thompson-sampling policy
 
-Status: idea, not queued. Origin: discussion with the user, 2026-11-15. Motivation: the Bradley–Terry limit in
+Status: gate failed on frozen embeddings (2026-11-15, see the journal): Thurstone heads don't beat BT on held-out
+pairs and learn a nearly flat σ. Not queued. Origin: discussion with the user, 2026-11-15. Motivation: the Bradley–Terry limit in
 [implicit-distribution.md](implicit-distribution.md). Gate: test 3 there.
 
 ## Idea
