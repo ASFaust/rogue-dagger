@@ -320,3 +320,15 @@ bins). Test rows held out.
 
 Conclusion: no end-to-end Thurstone ablation for now; [future-ideas/thurstone-thompson.md](future-ideas/thurstone-thompson.md)
 stays parked. Test 2 (calibration vs FT-PFN) remains open.
+
+## 2026-11-15: Crossing tie term implemented, ablation launched
+
+Variant 1 of [future-ideas/crossing-horizons.md](future-ideas/crossing-horizons.md), as `train.cross_weight`
+(MLP readout only; `roguedagger/train.py: crossing_pairs`). Per step and env, 64 random item pairs; where a pair's
+label (best loss up to len+h, cap respected) strictly swaps sign between h and h+1 within the remaining budget, the
+readout at h* = h + 0.5 is trained towards a tie with BCE at label 0.5 (shifted so a tie costs 0), weight 1. With
+several crossings one is drawn at random. Test: crossings agree with `env.values` on both sides. On the smoke run
+about 36 % of random pairs have a crossing; speed is unchanged (≈ 11-14 it/s).
+
+`wide-readout-cross-v1` (seed 0) vs `wide-readout-v1` (seed 0) changes only this term. A single seed against a single
+seed can only show effects well beyond the seed noise (≈ 0.017 TaskSet / 0.013 PD1 / 0.005 LCBench).

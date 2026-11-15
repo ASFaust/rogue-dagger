@@ -43,7 +43,7 @@
 - [x] Probe frozen embeddings for future best loss and its spread: label R² 0.33-0.40 (linear), spread weakly represented (corr 0.20 vs 0.07 item-type baseline); journal
 - [ ] Calibration on prior pairs: our σ(s_a − s_b) vs FT-PFN histograms under independence
 - [x] BT vs Thurstone head on frozen embeddings, held-out pairs (`scripts/head_test.py`): gate FAILS, Thurstone 0.001-0.008 worse on held-out pairs, σ nearly flat (journal)
-- [ ] Crossing equality term (MLP readout), ablation vs wide-readout-v1 (docs/future-ideas/crossing-horizons.md)
+- [~] Crossing equality term (MLP readout), ablation vs wide-readout-v1 (docs/future-ideas/crossing-horizons.md): `train.cross_weight`, `wide-readout-cross-v1` training on GPU 3 (eval tag `wrcross`)
 - [x] Per-env rollout temperature: both worse than fixed τ=1. `wide-focus03-tmixcold-v1` (0.1..1): TaskSet −0.036, LCBench −0.013, half the pairs. `wide-focus03-tmix-v1` (0.25..2): TaskSet −0.049, PD1 shop-32 −0.026. See journal
 - [~] Seed-1 replicate of `wide-focus03-big-v1` (GPU 4): does the big-shop PD1 loss survive seed noise?
 ## RL extension (docs/rl.md) — SHELVED 2026-11-14, reasons in docs/rl.md
