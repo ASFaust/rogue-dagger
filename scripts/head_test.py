@@ -166,6 +166,7 @@ def main():
     ap.add_argument("--batch", type=int, default=256)
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--pair_low", type=float, default=0.3)
+    ap.add_argument("--probe", action="store_true", help="also run the linear probes (test 1)")
     args = ap.parse_args()
     dev = torch.device("cuda")
     ck = torch.load(args.ckpt, map_location=dev, weights_only=False)
@@ -211,6 +212,43 @@ def main():
         if mk.any():
             print(f" | runs len/T [{lo},{hi}) {sig[mk].mean().item():.3f} (n={int(mk.sum())})", end="")
     print()
+    if args.probe:
+        probe(Dtr, Dte)
+
+
+def ridge(X, y, lam=1e-2):
+    X = torch.cat([X, torch.ones(len(X), 1, device=X.device)], 1).double()
+    A = X.T @ X + lam * len(X) * torch.eye(X.shape[1], device=X.device, dtype=X.dtype)
+    w = torch.linalg.solve(A, X.T @ y.double())
+    return lambda Z: (torch.cat([Z, torch.ones(len(Z), 1, device=Z.device)], 1).double() @ w).float()
+
+
+def probe(Dtr, Dte):
+    """Test 1: linear probes from frozen embeddings to (i) the label (future best loss, z-scored within each state,
+    so task scale drops out) and (ii) the squared error of probe (i): a heteroscedastic spread probe. Baseline: the
+    same probes on item-type features only (shop flag, run progress bins)."""
+    def flat(D, sub=400000):
+        ok = D["ok"]
+        v = torch.where(ok, D["val"], torch.nan)
+        mu, sd = v.nanmean(1, keepdim=True), (v - v.nanmean(1, keepdim=True)).pow(2).nanmean(1, keepdim=True).sqrt()
+        z = ((D["val"] - mu) / sd.clamp(min=1e-6)).clamp(-5, 5)
+        keep = ok & (sd > 1e-6)
+        X, y = D["emb"][keep].float(), z[keep]
+        p = D["prog"][keep]
+        B = torch.stack([D["shop"][keep].float()] + [((p >= lo) & (p < hi) & ~D["shop"][keep]).float()
+                        for lo, hi in ((0, .1), (.1, .3), (.3, .7), (.7, 1e9))], 1)
+        g = torch.Generator(device=X.device).manual_seed(0)
+        i = torch.randperm(len(X), device=X.device, generator=g)[:sub]
+        return X[i], B[i], y[i]
+    Xa, Ba, ya = flat(Dtr)
+    Xb, Bb, yb = flat(Dte)
+    r2 = lambda y, p: 1 - ((y - p) ** 2).mean().item() / y.var().item()
+    for name, A, Bt in (("embedding", Xa, Xb), ("item type", Ba, Bb)):
+        f = ridge(A, ya)
+        ea, eb = (ya - f(A)) ** 2, (yb - f(Bt)) ** 2
+        g = ridge(A, ea)
+        print(f"probe [{name:9s}] label R2 test {r2(yb, f(Bt)):.3f} | spread (sq. error) R2 test {r2(eb, g(Bt)):.3f}"
+              f" | corr(pred spread, sq. error) {torch.corrcoef(torch.stack([g(Bt), eb]))[0, 1].item():.3f}")
 
 
 if __name__ == "__main__":

@@ -295,3 +295,28 @@ the future best loss) would tell whether that information is there.
 
 Conclusion: the gate for [future-ideas/thurstone-thompson.md](future-ideas/thurstone-thompson.md) fails on frozen
 embeddings. No end-to-end Thurstone ablation unless test 1 shows the spread is represented.
+
+## 2026-11-15: Embedding probes (test 1): the spread is represented, weakly
+
+`scripts/head_test.py --probe` (log: `runs/logs/probe_test.log`), same data as the BT/Thurstone test. Linear ridge
+probes from frozen embeddings to (i) the label (future best loss up to len+H, z-scored within each state so task
+scale drops out) and (ii) the squared error of probe (i), a per-item spread proxy. The prior gives one future per
+item, so a true conditional spread isn't available; squared error of one draw is a very noisy target (even a perfect
+σ² predictor correlates well below 1 with it). Baseline: the same probes on item type only (shop flag, run-progress
+bins). Test rows held out.
+
+| Model | label R² (emb / type) | spread R² (emb / type) | corr(pred spread, sq. error) (emb / type) |
+|---|---|---|---|
+| `wide-focus03-v1` | 0.337 / 0.053 | 0.041 / 0.005 | 0.202 / 0.069 |
+| `wide-v1` | 0.334 / 0.051 | 0.040 / 0.004 | 0.205 / 0.069 |
+| `wide-readout-v1` | 0.395 / 0.058 | 0.047 / 0.005 | 0.217 / 0.074 |
+
+- The within-state outcome is linearly decodable (R² 0.33-0.40, linear only).
+- Spread information is there, weakly: the embedding predicts where the probe errs about 3 times better than item
+  type does (corr 0.20 vs 0.07). The ceiling for this noisy target is unknown, so "weak" is relative.
+- Together with the head test: the embeddings do carry some per-item uncertainty, and an MLP Thurstone head on them
+  could have used it, but it didn't improve held-out pair predictions. So per-item spread adds little to pairwise
+  decisions on the prior beyond what the BT score already captures.
+
+Conclusion: no end-to-end Thurstone ablation for now; [future-ideas/thurstone-thompson.md](future-ideas/thurstone-thompson.md)
+stays parked. Test 2 (calibration vs FT-PFN) remains open.

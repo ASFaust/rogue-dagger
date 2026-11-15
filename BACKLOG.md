@@ -40,7 +40,7 @@
   model starts as many runs as focus03 does on the full table (111 vs 110) and is still 3x worse, so it's not the run
   count either: it picks worse. It's worse on the short-curve PD1 tasks too (0.0083 vs 0.0015), just less visibly.
 
-- [ ] Probe frozen embeddings for future best loss and its spread (docs/future-ideas/implicit-distribution.md)
+- [x] Probe frozen embeddings for future best loss and its spread: label R² 0.33-0.40 (linear), spread weakly represented (corr 0.20 vs 0.07 item-type baseline); journal
 - [ ] Calibration on prior pairs: our σ(s_a − s_b) vs FT-PFN histograms under independence
 - [x] BT vs Thurstone head on frozen embeddings, held-out pairs (`scripts/head_test.py`): gate FAILS, Thurstone 0.001-0.008 worse on held-out pairs, σ nearly flat (journal)
 - [ ] Crossing equality term (MLP readout), ablation vs wide-readout-v1 (docs/future-ideas/crossing-horizons.md)
