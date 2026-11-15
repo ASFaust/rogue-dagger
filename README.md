@@ -138,7 +138,18 @@ See [BACKLOG.md](BACKLOG.md) for what is done and what is open.
 > **Seed noise (2026-11-15):** retraining the same config with another seed changes results by up to 0.017 (TaskSet),
 > 0.013 (PD1) and 0.005 (LCBench), and is "significant" under the task-level CIs below. Those CIs don't include
 > training-seed variance, so single-seed differences of that size are not evidence. `wide` seed 1 is worse than
-> FT-PFN on PD1 (0.0229); `wide-focus03` beats FT-PFN on PD1 with both seeds (0.0059, 0.0117). Details: docs/journal.md.
+> FT-PFN on PD1 (0.0229); `wide-focus03` beats FT-PFN on PD1 with all three seeds (0.0059, 0.0117, 0.0108).
+>
+> **Three-seed headline** (full table, τ=0.25, mean final regret; `scripts/compare_seeds.py`, CIs resample tasks and
+> training seeds; gain vs FT-PFN, positive = better):
+>
+> | Family | FT-PFN | `wide` (3 seeds) | `wide-focus03` (3 seeds) |
+> |---|---|---|---|
+> | TaskSet | 0.053 | 0.056 (−0.002 [−0.019, +0.015]) | 0.056 (−0.002 [−0.020, +0.015]) |
+> | PD1 | 0.0151 | 0.0153 (−0.000 [−0.008, +0.007]) | **0.0095 (+0.006 [+0.001, +0.011])** |
+> | LCBench | 0.0076 | 0.0161 (−0.009 [−0.016, −0.004]) | 0.0124 (−0.005 [−0.009, −0.001]) |
+>
+> `wide-focus03` beats FT-PFN on PD1, ties on TaskSet, and is behind on LCBench. Details: docs/journal.md.
 
 Protocol from the ifBO paper: 1000 steps per task, 10 seeds, the first config
 random. Regret is normalised by the table's best and worst value (stricter than

@@ -332,3 +332,30 @@ about 36 % of random pairs have a crossing; speed is unchanged (≈ 11-14 it/s).
 
 `wide-readout-cross-v1` (seed 0) vs `wide-readout-v1` (seed 0) changes only this term. A single seed against a single
 seed can only show effects well beyond the seed noise (≈ 0.017 TaskSet / 0.013 PD1 / 0.005 LCBench).
+
+## 2026-11-15: Three seeds per reference model: the headline
+
+Seed-2 replicates `wide-s2`, `wide-focus03-s2` done. Per-model full-table τ=0.25 regret (seeds 0 / 1 / 2):
+
+| Family | `wide` | `wide-focus03` |
+|---|---|---|
+| TaskSet | 0.0617 / 0.0547 / 0.0506 | 0.0640 / 0.0468 / 0.0561 |
+| PD1 | 0.0098 / 0.0229 / 0.0132 | 0.0059 / 0.0117 / 0.0108 |
+| LCBench | 0.0162 / 0.0209 / 0.0113 | 0.0140 / 0.0130 / 0.0102 |
+
+Seed 2 lands inside the range of seeds 0 and 1, except `wide` LCBench (0.0113, best of the three). Seed-aware
+comparison (bootstrap over tasks and seeds), gain vs FT-PFN, positive = better:
+
+| Family | FT-PFN | `wide` (3) | `wide-focus03` (3) | focus03 vs wide |
+|---|---|---|---|---|
+| TaskSet | 0.053 | 0.056 (−0.002 [−0.019, +0.015]) | 0.056 (−0.002 [−0.020, +0.015]) | +0.000 |
+| PD1 | 0.0151 | 0.0153 (−0.000 [−0.008, +0.007]) | **0.0095 (+0.006 [+0.001, +0.011])**, 15/28 | +0.006 [−0.001, +0.016], 21/28 |
+| LCBench | 0.0076 | 0.0161 (−0.009 [−0.016, −0.004]) | 0.0124 (−0.005 [−0.009, −0.001]) | +0.004 [−0.001, +0.010], 22/35 |
+
+Shop 32, τ=1, focus03 vs wide: TaskSet +0.000, PD1 +0.011 [−0.001, +0.025] (18/28), LCBench −0.001.
+
+- Headline holds with 3 seeds: `wide-focus03` beats FT-PFN on PD1 (CI excludes 0), ties on TaskSet, is behind on
+  LCBench (gap 0.005, smaller than `wide`'s 0.009).
+- `wide-focus03` vs `wide`: consistently ahead on PD1 and LCBench, but with 3 seeds both CIs now just include 0
+  (the 2-seed LCBench CI excluded it). Call it "probably better", not established.
+- `wide-focus03` has the smaller seed spread on PD1 (0.006 vs 0.013) and LCBench.
