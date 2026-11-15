@@ -483,7 +483,8 @@ readout − variant:
 | tie (variant 1), shop 32 | **−0.021** | **−0.012** | −0.002 |
 
 Variant 2 avoids variant 1's shop-32 losses but gains nothing, and is slightly worse on the PD1 full table. Training
-pair accuracy and loss are unchanged (0.724 vs readout), so the extra labels are neither hard nor helpful.
+pair accuracy is unchanged (last 20 logs: 0.723 / 0.744 vs readout 0.719 / 0.748), so the extra labels are neither
+hard nor helpful.
 
 Conclusion: training at label crossings doesn't help in either form; idea closed
 (future-ideas/crossing-horizons.md).
