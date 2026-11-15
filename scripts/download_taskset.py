@@ -52,7 +52,7 @@ def hp_table(opt):
     return names, hps
 
 
-def main(out_dir):
+def main(out_dir, tasks=TASKS):
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     tables = {short: hp_table(opt) for short, opt in OPTS.items()}
@@ -70,11 +70,18 @@ def main(out_dir):
                  valid=ys[:n, :, :, 1].mean(1), test=ys[:n, :, :, 2].mean(1))
         return f"saved {path.name} {ys.shape}"
 
-    jobs = [(t, o) for t in TASKS for o in OPTS]
+    jobs = [(t, o) for t in tasks for o in OPTS]
     with ThreadPoolExecutor(8) as ex:
         for msg in ex.map(one, jobs):
             print(msg, flush=True)
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "data/taskset")
+    # python scripts/download_taskset.py [out_dir] [task_list.txt]
+    #   dev set: python scripts/download_taskset.py data/taskset_dev scripts/taskset_dev_tasks.txt
+    out = sys.argv[1] if len(sys.argv) > 1 else "data/taskset"
+    tl = TASKS
+    if len(sys.argv) > 2:
+        tl = [ln.strip() for ln in open(sys.argv[2]) if ln.strip() and not ln.startswith("#")]
+        assert not set(tl) & set(TASKS), "dev list overlaps the test tasks"
+    main(out, tl)

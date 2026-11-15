@@ -488,3 +488,47 @@ hard nor helpful.
 
 Conclusion: training at label crossings doesn't help in either form; idea closed
 (future-ideas/crossing-horizons.md).
+
+## 2026-11-15: Prior sim-to-real, measurement 3: curve statistics, real vs prior twins
+
+New dev data: 120 TaskSet tasks × {adam4p, adam8p} = 240 tasks (`scripts/taskset_dev_tasks.txt`, 12 per sampled
+family + 12 Fixed*, none from the test tasks' family; `data/taskset_dev`, 199 MB). `scripts/curve_stats.py`: per real
+task, 4 prior twins with the same d, T and number of configs; per task, statistics of the normalised curves; KS
+distance between the real and twin distributions (`runs/logs/curve_stats.log`). Shape statistics use each curve's
+own range (a first version used the task's range, which real tasks' many bad configs inflate; that zeroed PD1's
+overfitting artificially).
+
+Medians, real vs twin (KS in brackets); dev = 240 TaskSet dev tasks:
+
+| statistic | TaskSet dev | TaskSet test | LCBench | PD1 |
+|---|---|---|---|---|
+| flat curves (own range < 2% of task's) | 0.44 vs 0.00 (0.94) | 0.51 vs 0.00 (0.99) | 0.06 vs 0.00 (0.59) | 0.08 vs 0.00 (0.55) |
+| final spread (q90 − q10, / task range) | 0.98 vs 0.45 (0.83) | 0.71 vs 0.36 (0.46) | 0.43 vs 0.41 (0.26) | 0.96 vs 0.45 (0.91) |
+| configs within 5% of the best | 0.11 vs 0.01 (0.45) | 0.002 vs 0.011 (0.49) | 0.04 vs 0.01 (0.31) | 0.23 vs 0.03 (0.87) |
+| noise (residual sd / own range) | 0.017 vs 0.072 (0.66) | 0.034 vs 0.082 (0.58) | 0.029 vs 0.077 (0.54) | 0.015 vs 0.068 (0.67) |
+| autocorr. of increments | +0.57 vs −0.34 (0.61) | −0.33 vs −0.37 (0.34) | +0.31 vs −0.35 (0.64) | +0.72 vs −0.38 (0.88) |
+| up-steps | 0.21 vs 0.46 (0.79) | 0.34 vs 0.47 (0.82) | 0.27 vs 0.47 (0.86) | 0.27 vs 0.47 (0.79) |
+| overfit (min before 0.8 T, end >10% above) | 0.15 vs 0.59 (0.69) | 0.18 vs 0.63 (0.75) | 0.32 vs 0.58 (0.49) | 0.00 vs 0.52 (0.81) |
+| diverge (end above start) | 0.03 vs 0.19 (0.61) | 0.01 vs 0.21 (0.72) | 0.03 vs 0.21 (0.55) | 0.00 vs 0.15 (0.73) |
+| rank corr. running best at 0.1 T vs final | 0.93 vs 0.88 (0.38) | 0.93 vs 0.86 (0.40) | 0.89 vs 0.86 (0.38) | 0.91 vs 0.88 (0.41) |
+| pair order flips after 0.1 T | 0.08 vs 0.14 (0.50) | 0.09 vs 0.15 (0.58) | 0.12 vs 0.16 (0.41) | 0.12 vs 0.15 (0.35) |
+
+Reading (dev and test agree in direction on almost everything, so dev data is usable for fitting):
+1. **Noise is too large and of the wrong kind.** Prior noise is ~3-4× the real residual, and white (increments
+   anticorrelated, −0.35, as i.i.d. noise gives), while real fluctuations are smooth (increments positively
+   correlated: PD1 +0.72, dev +0.57, LCBench +0.31; TaskSet test's 50 widely spaced points are the exception).
+   The prior's up-steps (0.47 ≈ coin flip) and much of its overfitting count are this noise.
+2. **Too much overfitting and divergence in the prior**: 0.5-0.6 of curves vs 0-0.3 (PD1: none, consistent with
+   decaying LR schedules ending at their best); diverging 0.15-0.21 vs 0-0.03. Partly confounded with 1.
+3. **Real tasks have dead configs and a cluster near the best; the prior has neither.** Flat curves: TaskSet about
+   half (losses clipped at the initial loss: NaN or no learning), PD1/LCBench 6-8%; prior none. Final losses span
+   the task's range far more in TaskSet and PD1 (0.96-0.98 vs 0.45), and PD1 has many near-best configs (23% within
+   5% of the best vs 3%).
+4. **Real curves are slightly more predictable early** (rank corr. at 0.1 T 0.89-0.93 vs 0.86-0.88; fewer order flips
+   0.08-0.12 vs 0.14-0.16). Smaller gap than 1-3.
+
+Which of these matter for decisions is open. A guess is 3: with many near-best configs (PD1), finding a good
+config is easy and the budget is better spent training it, so a policy's balance of starting vs continuing matters
+differently than on the prior. But the big-shop PD1 loss isn't clearly about starting more: big-shop models start
+151-152 runs per episode on the PD1 full table vs 110-142 for focus03, and about the same at shop 32 (150-157 vs
+143-150). To be checked against measurements 1-2 (twin ρ, scorer accuracy real vs twin), running.

@@ -1,6 +1,9 @@
 # Measuring the prior's sim-to-real gap, then improving the prior
 
-Status: idea; one crude measurement done (below). Origin: user, 2026-11-15, way forward (b) of key finding 2 in
+Status: measuring (2026-11-15). Done: crude decision-level ρ (below); curve statistics on 240 TaskSet dev tasks + the
+3 benchmarks (journal, 2026-11-15: prior noise 3-4× too large and white, too much overfitting/divergence, no dead
+configs, no near-best cluster). Running: matched-twin ρ (`scripts/twins.py`), scorer accuracy real vs twin
+(`scripts/pair_gap.py`). Origin: user, 2026-11-15, way forward (b) of key finding 2 in
 [../journal.md](../journal.md): RL exploits structure of the ifBO prior that real curves don't have. Companion to
 [real-curve-training.md](real-curve-training.md), which is way (a).
 
@@ -109,6 +112,7 @@ starting to transfer.
 1. Matched twins for the 3 benchmarks + ρ over our ~30 existing models (no training). Separates spec mismatch
    from curve mismatch, notably for the PD1 inversion.
 2. Scorer pair accuracy, real vs twin, by pair type (one frozen model, no training).
-3. Download more TaskSet tasks as dev data; summary statistics, real vs prior.
+3. ~~Download more TaskSet tasks as dev data; summary statistics, real vs prior.~~ Done: `data/taskset_dev`
+   (`scripts/taskset_dev_tasks.txt`), `scripts/curve_stats.py`.
 4. FT-PFN PIT calibration on dev data.
 5. Classifier two-sample test.
