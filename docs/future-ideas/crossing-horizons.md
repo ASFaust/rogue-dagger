@@ -1,6 +1,8 @@
 # Crossing-aware horizons for the pairwise loss
 
-Status: idea, not queued. Origin: user, 2026-11-15.
+Status: tested, negative, closed (2026-11-15, see the journal). Both variants, 2 seeds each vs `wide-readout`
+(2 seeds): variant 1 (tie target) n.s. on the full table, worse at shop 32 (TaskSet −0.021, PD1 −0.012); variant 2
+(ordinary labels on both sides) n.s. except PD1 full table −0.007 [−0.017, −0.000]. Origin: user, 2026-11-15.
 
 ## Idea
 

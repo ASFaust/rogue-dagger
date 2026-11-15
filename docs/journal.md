@@ -467,3 +467,23 @@ Shop 32 at σ scale 1: TaskSet 0.073 vs 0.085 (+0.013 n.s.), PD1 0.056 vs 0.032 
 - The constant-σ ablation planned for the case of a gain isn't needed.
 
 Conclusion: Thurstone + Thompson doesn't beat Bradley–Terry + softmax; closed (future-ideas/thurstone-thompson.md).
+
+## 2026-11-15: Crossing variant 2 (`sides`): negative; crossing idea closed
+
+User's variant 2: "not an equal loss, but rather both points around a crossing. after all it's discrete." At each
+mined crossing of a pair's label margin, ordinary BCE labels at the horizons on both sides (h* ± 0.5)
+(`train.cross_mode: sides`, `wide-readout-cross-sides-v1`/`-s1`). Two seeds each vs `wide-readout` (2 seeds), gain =
+readout − variant:
+
+| | TaskSet | PD1 | LCBench |
+|---|---|---|---|
+| sides, full table | −0.009 [−0.032, +0.007] | **−0.007 [−0.017, −0.000]** | +0.001 [−0.008, +0.016] |
+| sides, shop 32 | −0.004 [−0.026, +0.018] | −0.005 [−0.021, +0.009] | −0.004 [−0.010, +0.001] |
+| tie (variant 1), full table | +0.002 | +0.002 | −0.001 |
+| tie (variant 1), shop 32 | **−0.021** | **−0.012** | −0.002 |
+
+Variant 2 avoids variant 1's shop-32 losses but gains nothing, and is slightly worse on the PD1 full table. Training
+pair accuracy and loss are unchanged (0.724 vs readout), so the extra labels are neither hard nor helpful.
+
+Conclusion: training at label crossings doesn't help in either form; idea closed
+(future-ideas/crossing-horizons.md).

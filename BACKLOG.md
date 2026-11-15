@@ -43,7 +43,7 @@
 - [x] Probe frozen embeddings for future best loss and its spread: label R² 0.33-0.40 (linear), spread weakly represented (corr 0.20 vs 0.07 item-type baseline); journal
 - [ ] Calibration on prior pairs: our σ(s_a − s_b) vs FT-PFN histograms under independence
 - [x] BT vs Thurstone head on frozen embeddings, held-out pairs (`scripts/head_test.py`): gate FAILS, Thurstone 0.001-0.008 worse on held-out pairs, σ nearly flat (journal)
-- [~] Crossing variant 2 (`cross_mode: sides`, labels on both sides of the crossing): `wide-readout-cross-sides-v1`/`-s1` queued (GPUs 3, 4)
+- [x] Crossing variant 2 (`cross_mode: sides`), 2v2 vs `wide-readout`: n.s. except PD1 full table −0.007 (CI just excludes 0); crossing idea closed
 - [x] Thurstone readout from scratch + Thompson policy (`model.pair_model: thurstone`, 2 seeds): negative at every σ scale, PD1 worse throughout; closed
 - [x] Table of all models: docs/results.md via `scripts/results_table.py`
 - [x] Crossing equality term (variant 1), 2v2 vs `wide-readout`: full table n.s., shop 32 worse (TaskSet −0.021, PD1 −0.012); journal
