@@ -146,5 +146,7 @@ difference with a 95 % bootstrap CI over tasks; full table = the whole unseen ta
   - `wide-t025-v1` (τ=0.25 everywhere) was worse because the rollouts started half as many runs and gave half
     as many pairs. A mixture keeps most of the pair supply.
   
-  Implemented as `train.temperature_range`: log-uniform per env, redrawn at reset. `wide-focus03-tmix-v1` uses
-  τ in 0.25..2 and is queued on GPU 3 after the seed replicate.
+  Implemented as `train.temperature_range`: log-uniform per env, redrawn at reset. Two ranges, both queued:
+  - `wide-focus03-tmix-v1` (τ 0.25..2): GPU 3, after the seed replicate.
+  - `wide-focus03-tmixcold-v1` (τ 0.1..1): GPU 4, after longT. The user's preference: 0.25 is the deploy optimum
+    on the real tables, and τ=2 is untested, so 0.25..2 is quite hot.
