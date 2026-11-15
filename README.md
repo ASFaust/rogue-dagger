@@ -130,6 +130,7 @@ ifBO uses. `--shop-mode mixed` turns half the shop slots into mutations of the
 top runs, snapped to the nearest unseen config.
 
 See [BACKLOG.md](BACKLOG.md) for what is done and what is open.
+[docs/journal.md](docs/journal.md) is the research journal: what was tried, why, what we learned, and the key findings.
 
 ## Results so far (2026-11-12, work in progress)
 
