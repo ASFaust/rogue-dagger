@@ -25,7 +25,7 @@ still pass, but nothing new is trained with it. Reasons, all from the results re
    another (shop size and pair weighting trade PD1 against LCBench), and a full pairwise run costs ~3.5 h vs 4.5 h
    for RL, with no extra moving parts.
 
-The two ways forward for RL (docs/journal.md, key finding 2) are training on real learning-curve data and
+The two ways forward for RL (docs/journal.md, key finding 2; docs/future-ideas/real-curve-training.md) are training on real learning-curve data and
 improving the ifBO prior. Worth revisiting only if the prior itself gets closer to the benchmarks, or with a selection signal that predicts
 transfer (e.g. a held-out set of real tasks, which this project doesn't have).
 

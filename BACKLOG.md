@@ -37,9 +37,10 @@
   model starts as many runs as focus03 does on the full table (111 vs 110) and is still 3x worse, so it's not the run
   count either: it picks worse. It's worse on the short-curve PD1 tasks too (0.0083 vs 0.0015), just less visibly.
 
-- [ ] Probe frozen embeddings for future best loss and its spread (docs/journal.md, implicit-distribution framing)
+- [ ] Probe frozen embeddings for future best loss and its spread (docs/future-ideas/implicit-distribution.md)
 - [ ] Calibration on prior pairs: our σ(s_a − s_b) vs FT-PFN histograms under independence
-- [ ] Crossing equality term (MLP readout), ablation vs wide-readout-v1 (journal, future ideas)
+- [ ] BT vs Thurstone head on frozen embeddings, held-out pairs (gate for docs/future-ideas/thurstone-thompson.md)
+- [ ] Crossing equality term (MLP readout), ablation vs wide-readout-v1 (docs/future-ideas/crossing-horizons.md)
 - [~] Per-env rollout temperature: `wide-focus03-tmix-v1` (0.25..2), `wide-focus03-tmixcold-v1` (0.1..1), queued
 ## RL extension (docs/rl.md) — SHELVED 2026-11-14, reasons in docs/rl.md
 - [x] PPO + GAE trainer (`roguedagger/rl.py`) starting from a pairwise checkpoint; separate critic initialised from its trunk; critic-only warmup; pairwise BCE as aux loss

@@ -151,63 +151,20 @@ difference with a 95 % bootstrap CI over tasks; full table = the whole unseen ta
   - `wide-focus03-tmixcold-v1` (τ 0.1..1): GPU 4, after longT. The user's preference: 0.25 is the deploy optimum
     on the real tables, and τ=2 is untested, so 0.25..2 is quite hot.
 
-## Future ideas (not queued; one change per ablation)
+## 2026-11-15: Ideas discussed (now in docs/future-ideas/)
 
-### Crossing-mined horizons for the pairwise loss (user, 2026-11-15)
-
-- **Idea.** A pair's label only carries information about curve *shape* where it changes with the horizon, i.e.
-  where the two curves swap order. Mine those crossing points and train the pairwise loss at horizons around them,
-  instead of at the reported horizon only or at horizons drawn independently of the curves.
-- **Why the architecture allows it.** With the MLP readout (`model.readout: mlp`, `wide-readout-v1`) the trunk is
-  horizon-free, and the horizon only enters at the readout. One trunk pass can therefore be read out at many
-  horizons cheaply; `train.n_horizons` already does this with K horizons per state, log-uniform in
-  [1, remaining].
-- **Detail.** A comparison sigmoid(s_a − s_b) needs both scores at the same horizon, so the horizon is per *pair*,
-  not per token. Read each token out at a small set of horizons per state, and assign each pair to the horizon
-  nearest its crossing.
-- **Where a pair crosses.** Labels use the best-so-far loss up to len+H. A pair (a, b) swaps at the first
-  horizon h where the order of cummin_a(len_a + h) and cummin_b(len_b + h) changes. That can be computed
-  exactly from the materialised curves in the env.
-- **Risks:**
-  - Crossings caused by noise wiggles near the start; cummin damps these.
-  - Over-weighting hard pairs. Mix crossing horizons with the existing log-uniform draws.
-  - It builds on the MLP readout, which was best on TaskSet but worse on LCBench.
-- **Simpler form (user, 2026-11-15): an equality constraint at the crossing.** No need to sample horizons around a
-  crossing. At the crossing horizon h* the two items are tied, so the extra loss is just "scores equal at h*":
-  pairwise BCE with soft label 0.5 at h*, i.e. a gradient of sigmoid(s_a − s_b) − 0.5, or (s_a − s_b)².
-  BCE with 0.5 keeps it on the same likelihood scale as the main loss.
-  - Together with the normal labels at other horizons, this pins where the score difference changes sign,
-    which is exactly the shape information. Each crossing pair costs one extra readout.
-  - h* is discrete (the order flips between h and h+1), but the horizon features are continuous (H/B,
-    log1p(H/T)). The tie point can be read out at a fractional h*, interpolated between the two steps.
-  - Pairs that are tied over a whole stretch (both best-so-far curves flat and equal) aren't crossings; skip them.
-  - It needs the score to be a smooth function of the horizon, which only the MLP readout guarantees cheaply.
-- **Clean ablation.** Against `wide-readout-v1` (same readout, same K = 4), changing only one thing: (i) the K horizons
-  chosen at crossings instead of log-uniform, or (ii) the equality term at crossings added (simpler, try first).
-
-### Framing: the curve distribution is implicit (user, 2026-11-15)
-
-- FT-PFN models the learning-curve distribution explicitly: a histogram head gives p(y_t | x, data) per config and
-  time point. We never decode a curve. We train binary tests (does a beat b by len+H?) and leave the stochastic
-  representation to the model. With the MLP readout, a token embedding is a learned representation of that curve's
-  predictive distribution, uncertainty included, in whatever form suits the network.
-- **What this buys:**
-  - *Joint, not marginal.* A pair label is a property of the joint distribution of both curves, so the model can
-    use shared structure (same task, same noise, same sensitivity to difficulty). FT-PFN's marginals have to treat
-    two configs as independent when they are compared.
-  - *The decision quantity, not a proxy.* The label is the best loss over the window up to len+H. MFPI reads the
-    prediction at one horizon. The model only has to represent what the decision needs.
-- **Where the limit is: the readout is Bradley–Terry.** Any uncertainty in the embedding is compressed into one scalar
-  per token and horizon, compared via σ(s_a − s_b), so pairwise probabilities must fit a single ranking. Example: a
-  safe and a risky item with the same expected outcome can't be represented exactly, because whether the risky one
-  wins depends on what it is compared against. Two things soften this:
-  - the score is a function of the horizon, s_a(H), so spread can show up in its shape (this is what the crossing
-    equality term trains);
-  - the readout sees the global features (incumbent, budget), so the scalar is context-dependent.
-- **Tests (frozen model, no training; not queued):**
-  1. *Probe the embeddings.* On prior tasks the true future is known. Fit linear probes from frozen token embeddings
-     to (i) the future best loss up to len+H and (ii) its spread across prior curve draws for the same config and
-     history. This shows whether the representation holds uncertainty or only a point estimate.
-  2. *Same question to both models.* On held-out prior pairs, compare our σ(s_a − s_b) with P(a beats b) computed from
-     FT-PFN's histograms under independence. Check calibration (reliability, log loss) against the true outcome. This
-     directly tests implicit joint vs explicit marginal.
+Design discussion with the user, no runs. Each idea has its own file in [future-ideas/](future-ideas/README.md):
+- **Crossing-aware horizons** ([crossing-horizons.md](future-ideas/crossing-horizons.md)). A pair's label carries
+  shape information only where the curves cross. Simplest form: an equality term (scores tied) at the crossing horizon.
+- **The curve distribution is implicit** ([implicit-distribution.md](future-ideas/implicit-distribution.md)). Unlike
+  FT-PFN's histogram head, we train binary tests and leave the representation of uncertainty to the network.
+  - The finding: the Bradley–Terry readout can't represent every set of pairwise probabilities. A small margin is
+    decisive against a safe item and irrelevant against a risky one, and one scalar per item can't encode both.
+    Attention can absorb dependence shared across a state, but not this.
+  - Diagnostic tests on a frozen model are written up there.
+- **Thurstone readout + Thompson sampling** ([thurstone-thompson.md](future-ideas/thurstone-thompson.md)). A (μ, σ)
+  per token fixes the BT example, and sampling gives P(best) without a temperature. Main risk (user): extra degrees of
+  freedom. σ is weakly identified by binary pairs and would drive exploration, the same pattern as RL exploiting the
+  prior. Gated on a held-out comparison of BT vs Thurstone heads.
+- **Real-curve training** ([real-curve-training.md](future-ideas/real-curve-training.md)): the two ways forward
+  from key finding 2, and the data for each.
