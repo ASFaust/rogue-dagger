@@ -150,3 +150,27 @@ difference with a 95 % bootstrap CI over tasks; full table = the whole unseen ta
   - `wide-focus03-tmix-v1` (τ 0.25..2): GPU 3, after the seed replicate.
   - `wide-focus03-tmixcold-v1` (τ 0.1..1): GPU 4, after longT. The user's preference: 0.25 is the deploy optimum
     on the real tables, and τ=2 is untested, so 0.25..2 is quite hot.
+
+## Future ideas (not queued; one change per ablation)
+
+### Crossing-mined horizons for the pairwise loss (user, 2026-11-15)
+
+- **Idea.** A pair's label only carries information about curve *shape* where it changes with the horizon, i.e.
+  where the two curves swap order. Mine those crossing points and train the pairwise loss at horizons around them,
+  instead of at the reported horizon only or at horizons drawn independently of the curves.
+- **Why the architecture allows it.** With the MLP readout (`model.readout: mlp`, `wide-readout-v1`) the trunk is
+  horizon-free, and the horizon only enters at the readout. One trunk pass can therefore be read out at many
+  horizons cheaply; `train.n_horizons` already does this with K horizons per state, log-uniform in
+  [1, remaining].
+- **Detail.** A comparison sigmoid(s_a − s_b) needs both scores at the same horizon, so the horizon is per *pair*,
+  not per token. Read each token out at a small set of horizons per state, and assign each pair to the horizon
+  nearest its crossing.
+- **Where a pair crosses.** Labels use the best-so-far loss up to len+H. A pair (a, b) swaps at the first
+  horizon h where the order of cummin_a(len_a + h) and cummin_b(len_b + h) changes. That can be computed
+  exactly from the materialised curves in the env.
+- **Risks:**
+  - Crossings caused by noise wiggles near the start; cummin damps these.
+  - Over-weighting hard pairs. Mix crossing horizons with the existing log-uniform draws.
+  - It builds on the MLP readout, which was best on TaskSet but worse on LCBench.
+- **Clean ablation.** Against `wide-readout-v1` (same readout, same K = 4), changing only how the K horizons
+  are chosen: log-uniform vs crossing-mined.
