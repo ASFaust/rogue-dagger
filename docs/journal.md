@@ -184,3 +184,30 @@ difference with a 95 % bootstrap CI over tasks; full table = the whole unseen ta
   - It needs the score to be a smooth function of the horizon, which only the MLP readout guarantees cheaply.
 - **Clean ablation.** Against `wide-readout-v1` (same readout, same K = 4), changing only one thing: (i) the K horizons
   chosen at crossings instead of log-uniform, or (ii) the equality term at crossings added (simpler, try first).
+
+### Framing: the curve distribution is implicit (user, 2026-11-15)
+
+- FT-PFN models the learning-curve distribution explicitly: a histogram head gives p(y_t | x, data) per config and
+  time point. We never decode a curve. We train binary tests (does a beat b by len+H?) and leave the stochastic
+  representation to the model. With the MLP readout, a token embedding is a learned representation of that curve's
+  predictive distribution, uncertainty included, in whatever form suits the network.
+- **What this buys:**
+  - *Joint, not marginal.* A pair label is a property of the joint distribution of both curves, so the model can
+    use shared structure (same task, same noise, same sensitivity to difficulty). FT-PFN's marginals have to treat
+    two configs as independent when they are compared.
+  - *The decision quantity, not a proxy.* The label is the best loss over the window up to len+H. MFPI reads the
+    prediction at one horizon. The model only has to represent what the decision needs.
+- **Where the limit is: the readout is Bradley–Terry.** Any uncertainty in the embedding is compressed into one scalar
+  per token and horizon, compared via σ(s_a − s_b), so pairwise probabilities must fit a single ranking. Example: a
+  safe and a risky item with the same expected outcome can't be represented exactly, because whether the risky one
+  wins depends on what it is compared against. Two things soften this:
+  - the score is a function of the horizon, s_a(H), so spread can show up in its shape (this is what the crossing
+    equality term trains);
+  - the readout sees the global features (incumbent, budget), so the scalar is context-dependent.
+- **Tests (frozen model, no training; not queued):**
+  1. *Probe the embeddings.* On prior tasks the true future is known. Fit linear probes from frozen token embeddings
+     to (i) the future best loss up to len+H and (ii) its spread across prior curve draws for the same config and
+     history. This shows whether the representation holds uncertainty or only a point estimate.
+  2. *Same question to both models.* On held-out prior pairs, compare our σ(s_a − s_b) with P(a beats b) computed from
+     FT-PFN's histograms under independence. Check calibration (reliability, log loss) against the true outcome. This
+     directly tests implicit joint vs explicit marginal.
