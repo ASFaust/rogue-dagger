@@ -1,10 +1,11 @@
 # Measuring the prior's sim-to-real gap, then improving the prior
 
-Status: measured, first fix training (2026-11-15; journal entries of that date). Curve statistics: prior noise
+Status: measured, first fix tested negative (2026-11-15; journal entries of that date). Curve statistics: prior noise
 3-4× too large and white, too much overfitting/divergence, no dead configs, no near-best cluster. Matched-twin ρ:
 the crude PD1 inversion was spec mismatch; pairwise ρ positive everywhere (TaskSet +0.56 significant); RL
 uninformative (8 models). Scorer real vs twin: judgment transfers, except TaskSet comparisons of unseen configs.
-Noise fix (×0.25, smoothed 1 point, calibrated on dev) training as `wide-focus03-noise` (3 seeds).
+Noise fix (×0.25, smoothed 1 point, calibrated on dev; `wide-focus03-noise`, 3 seeds): worse on the benchmarks
+(journal 2026-11-16), so matching curve statistics is not a reliable target by itself.
 
 ## Why measure first
 

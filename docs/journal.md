@@ -604,3 +604,26 @@ Launched `wide-focus03-noise-v1/-s1/-s2` (configs/wide_focus03_noise.yaml, other
 GPUs 3-5; tags wf03noise, wf03noises1, wf03noises2; runs/logs/noise_runs.sh). Comparison: vs the 3 focus03 seeds
 with compare_seeds.py. Note the in-training synthetic eval uses the changed prior, so its numbers aren't comparable
 with other runs.
+
+## 2026-11-16: Noise-fixed prior: worse, not better
+
+`wide-focus03-noise-v1/-s1/-s2` (prior noise × 0.25, smoothed over 1 point, calibrated on TaskSet dev data; else
+identical to `wide-focus03`) vs the 3 focus03 seeds (gain = focus03 − noise; seed-aware CIs):
+
+| | TaskSet | PD1 | LCBench |
+|---|---|---|---|
+| full table, τ 0.25 | 0.068 vs 0.056: −0.012 [−0.041, +0.009] | 0.016 vs 0.0095: −0.007 [−0.018, +0.000] | 0.022 vs 0.012: −0.009 [−0.020, +0.000] |
+| shop 32, τ 1 | 0.096 vs 0.085: −0.011 [−0.029, +0.006] | 0.052 vs 0.032: **−0.020 [−0.042, −0.003]** | 0.023 vs 0.023: −0.000 [−0.005, +0.006] |
+
+All six point estimates are ≤ 0; one interval excludes 0. Making one aspect of the prior more realistic made the
+policy worse. Possible reasons, untested:
+- the large white noise acts as a regulariser (labels from noisy curves teach the scorer not to trust small
+  differences, which may suit real tasks whose other mismatches are larger);
+- the fix was fitted on dev curves whose residual noise (0.017) is half that of the TaskSet test tasks (0.034;
+  LCBench 0.029), i.e. the calibration target may simply be too low for the benchmarks;
+- other gaps (dead configs, near-best cluster, too much overfitting) interact with noise.
+Training pair accuracy is higher (0.72-0.76 vs 0.71 at the end), as expected with less label noise.
+
+Conclusion: the noise fix doesn't help; the option stays in the code (defaults = ifBO's prior). It also weakens the
+case that matching curve statistics is the way to improve the prior: the measured statistics are not a reliable
+target on their own. Further prior changes wait for the user.

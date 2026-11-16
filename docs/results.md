@@ -40,7 +40,7 @@ Deploy settings: **full** = the whole table as the shop (ifBO's setting) at the 
 | `wide-focus03-longT-v1` | 1 | T 4..1500 | 0.25 | 0.068 | 0.0234 | 0.0179 | 0.097 | 0.0527 | 0.0245 |
 | `wide-focus03-tmix-v1` | 1 | rollout τ per env, log-uniform 0.25..2 | 0.25 | 0.104 | 0.0127 | 0.0107 | 0.095 | 0.0560 | 0.0195 |
 | `wide-focus03-tmixcold-v1` | 1 | rollout τ per env, log-uniform 0.1..1 | 0.25 | 0.092 | 0.0112 | 0.0268 | 0.105 | 0.0292 | 0.0256 |
-| `wide-focus03-noise` | 0/3 | prior noise × 0.25, smoothed over 1 point (calibrated on TaskSet dev data) | 0.25 | running | running | running | running | running | running |
+| `wide-focus03-noise` | 3/3 | prior noise × 0.25, smoothed over 1 point (calibrated on TaskSet dev data) | 0.25 | 0.068 | 0.0162 | 0.0216 | 0.096 | 0.0515 | 0.0226 |
 | `wide-focus03-thurstone` | 2/2 | Thurstone (μ, σ) readout from scratch, Thompson-sampling policy (τ = σ scale) | 1.0 | 0.173 | 0.0609 | 0.0260 | 0.073 | 0.0558 | 0.0177 |
 | `wide-focus03-thurstone`, σ×0.5 | 2/2 | same models, Thompson draws at half σ | 0.5 | 0.077 | 0.0355 | 0.0137 | – | – | – |
 | `wide-focus03-thurstone`, σ×0.25 | 2/2 | same models, σ scale 0.25 (swept on the benchmarks: optimistic) | 0.25 | 0.062 | 0.0215 | 0.0158 | – | – | – |
@@ -86,6 +86,7 @@ so it is too narrow.
 | `wide-focus03-longT-v1` | 1 | -0.0142 [-0.0317, +0.0019] (10/24) | -0.0083 [-0.0153, -0.0022] ▼ (7/28) | -0.0103 [-0.0155, -0.0061] ▼ (3/35) |
 | `wide-focus03-tmix-v1` | 1 | -0.0507 [-0.0908, -0.0163] ▼ (7/24) | +0.0024 [-0.0010, +0.0060] (13/28) | -0.0031 [-0.0057, -0.0007] ▼ (9/35) |
 | `wide-focus03-tmixcold-v1` | 1 | -0.0382 [-0.0533, -0.0235] ▼ (3/24) | +0.0039 [+0.0002, +0.0075] ▲ (16/28) | -0.0192 [-0.0284, -0.0112] ▼ (2/35) |
+| `wide-focus03-noise` | 3/3 | -0.0145 [-0.0414, +0.0111] (10/24) | -0.0011 [-0.0107, +0.0052] (12/28) | -0.0140 [-0.0259, -0.0045] ▼ (6/35) |
 | `wide-focus03-thurstone` | 2/2 | -0.1196 [-0.1691, -0.0776] ▼ (3/24) | -0.0458 [-0.0737, -0.0236] ▼ (2/28) | -0.0183 [-0.0318, -0.0087] ▼ (3/35) |
 | `wide-focus03-thurstone`, σ×0.5 | 2/2 | -0.0231 [-0.0544, +0.0066] (7/24) | -0.0205 [-0.0321, -0.0104] ▼ (5/28) | -0.0061 [-0.0114, -0.0016] ▼ (7/35) |
 | `wide-focus03-thurstone`, σ×0.25 | 2/2 | -0.0088 [-0.0369, +0.0181] (9/24) | -0.0064 [-0.0137, +0.0003] (10/28) | -0.0082 [-0.0169, -0.0020] ▼ (8/35) |
@@ -115,6 +116,7 @@ Seed 0 / 1 / 2.
 | `wide-readout-cross` | 0.048 / 0.032 | 0.0102 / 0.0174 | 0.0251 / 0.0135 |
 | `wide-readout-cross-sides` | 0.052 / 0.050 | 0.0251 / 0.0219 | 0.0155 / 0.0190 |
 | `wide-focus03-big` | 0.073 / 0.033 | 0.0205 / 0.0301 | 0.0116 / 0.0106 |
+| `wide-focus03-noise` | 0.056 / 0.085 / 0.062 | 0.0213 / 0.0169 / 0.0103 | 0.0116 / 0.0252 / 0.0281 |
 | `wide-focus03-thurstone` | 0.163 / 0.183 | 0.0538 / 0.0680 | 0.0209 / 0.0310 |
 | `wide-focus03-thurstone`, σ×0.5 | 0.083 / 0.070 | 0.0344 / 0.0367 | 0.0121 / 0.0154 |
 | `wide-focus03-thurstone`, σ×0.25 | 0.066 / 0.059 | 0.0251 / 0.0179 | 0.0121 / 0.0194 |
