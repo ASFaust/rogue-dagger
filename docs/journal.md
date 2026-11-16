@@ -627,3 +627,21 @@ Training pair accuracy is higher (0.72-0.76 vs 0.71 at the end), as expected wit
 Conclusion: the noise fix doesn't help; the option stays in the code (defaults = ifBO's prior). It also weakens the
 case that matching curve statistics is the way to improve the prior: the measured statistics are not a reliable
 target on their own. Further prior changes wait for the user.
+
+## 2026-11-16: Noise-fixed prior at other deploy temperatures: still worse
+
+Question (user): the full-table eval used τ 0.25, picked by `synth_tau.py` on the original noisy prior. Does a less
+noisy prior want a warmer deploy τ (sharper scores, so 0.25 is effectively colder)? Full table at τ 0.5 and 1.0 for
+the 3 noise and the 3 focus03 seeds (`runs/logs/noise_tau.sh`); gain = focus03 − noise, seed-aware CIs:
+
+| τ | TaskSet | PD1 | LCBench |
+|---|---|---|---|
+| 0.25 | 0.068 vs 0.056: −0.012 [−0.041, +0.009] | 0.016 vs 0.0095: −0.007 [−0.018, +0.000] | 0.022 vs 0.012: −0.009 [−0.020, +0.000] |
+| 0.5 | 0.066 vs 0.073: +0.008 [−0.010, +0.023] | 0.033 vs 0.016: **−0.017 [−0.037, −0.001]** | 0.016 vs 0.014: −0.003 [−0.010, +0.002] |
+| 1.0 | 0.134 vs 0.113: −0.021 [−0.067, +0.022] | 0.064 vs 0.047: −0.017 [−0.043, +0.002] | 0.019 vs 0.023: +0.003 [−0.004, +0.010] |
+
+Best τ per model group: noise 0.066 / 0.016 / 0.016 vs focus03 0.056 / 0.0095 / 0.012, so the noise prior loses
+on every family even with its own best τ. Runs started are about equal at each τ (e.g. TaskSet τ 0.5: 259-412 vs
+365-404), so the noise models are not systematically sharper; seed s2's low run count at τ 0.25 is one seed. The
+deploy-τ interaction is ruled out as the main cause. τ 0.25 stays the deploy default for focus03 (best on all
+three families there).

@@ -76,5 +76,5 @@
 - Real-world harness: only the active run on the GPU; freeze = move state to RAM/disk, thaw = load back
 - Wall-clock step unit for deployment
 - [x] Prior sim2real measurements (docs/future-ideas/prior-sim2real.md): curve statistics on 240 TaskSet dev tasks, matched-twin ρ (41 models), scorer real vs twin
-- [x] Noise-fixed prior (`wide_focus03_noise.yaml`, 3 seeds): worse than focus03 (all 6 estimates ≤ 0, PD1 shop-32 −0.020 significant)
+- [x] Noise-fixed prior (`wide_focus03_noise.yaml`, 3 seeds): worse than focus03 (all 6 estimates ≤ 0, PD1 shop-32 −0.020 significant) ; also worse at deploy τ 0.5 and 1.0 (journal)
 - [ ] Prior: dead configs / near-best cluster / fewer overfitting shapes (next candidates, if the noise fix is worth following up)
