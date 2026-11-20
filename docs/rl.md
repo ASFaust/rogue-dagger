@@ -7,6 +7,9 @@ discrete SAC with replay) is a reference only.
 
 ## Status: shelved (2026-11-14)
 
+> **2026-11-20:** RL on real curves (the allowed TaskSet tasks) is queued as BACKLOG step 3, after test-time
+> augmentation and the LCBench analysis. RL on the prior stays shelved.
+
 RL is on hold. The pairwise (DAgger-like) training is the main line again. The code stays in the repo and the tests
 still pass, but nothing new is trained with it. Reasons, all from the results recorded in README:
 

@@ -1,5 +1,8 @@
 # Measuring the prior's sim-to-real gap, then improving the prior
 
+> **2026-11-20:** this line of work continues in the sister repo `../curve-faker`; this note is the record of
+> what was done here.
+
 Status: measured, first fix tested negative (2026-11-15; journal entries of that date). Curve statistics: prior noise
 3-4× too large and white, too much overfitting/divergence, no dead configs, no near-best cluster. Matched-twin ρ:
 the crude PD1 inversion was spec mismatch; pairwise ρ positive everywhere (TaskSet +0.56 significant); RL

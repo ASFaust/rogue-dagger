@@ -26,7 +26,9 @@ import numpy as np
 import torch
 
 from .bench import TabEnv, load_family
-from .train import policy_step, random_search_step
+from .features import OFF_H, encode, from_env
+from .model import sample_action
+from .train import policy_step, random_search_step, to_env_action
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -96,12 +98,57 @@ def run_ifbo_job(args):
     return task.name, seed, env.normalised_regret()[0].numpy(), time.time() - t0, int(env.n_runs[0])
 
 
+# ---------------------------------------------------------------------------- test-time augmentation
+def hp_perms(d: int, k: int, seed: int) -> list[torch.Tensor]:
+    """Identity plus k - 1 distinct random orders of the d active hp dimensions (fewer if d! < k)."""
+    g = torch.Generator().manual_seed(seed)
+    perms, seen = [torch.arange(d)], {tuple(range(d))}
+    for _ in range(100 * k):
+        if len(perms) >= min(k, math.factorial(d)):
+            break
+        p = torch.randperm(d, generator=g)
+        if tuple(p.tolist()) not in seen:
+            seen.add(tuple(p.tolist()))
+            perms.append(p)
+    return perms
+
+
+@torch.no_grad()
+def tta_step(models, env, temperature, h, perms, combine="score", amp=True):
+    """Policy step averaged over models x hp-dimension orders.
+    combine='score': softmax(mean score / T) (product of experts); 'prob': mean of softmax(score / T) (mixture)."""
+    H = env.horizon(*h)
+    obs = from_env(env, H)
+    r_cur = obs.run_len.shape[1]
+    tok, pad = encode(obs, env.d_max)
+    valid = torch.cat([env.choosable()[:, :r_cur], env.choosable()[:, env.R:]], 1)
+    d = int(env.d[0])
+    acc = None
+    for m in models:
+        for p in perms:
+            t = tok.clone()
+            t[..., OFF_H:OFF_H + d] = tok[..., OFF_H + p.to(tok.device)]   # mask slots unchanged: first d stay set
+            with torch.autocast("cuda", dtype=torch.bfloat16, enabled=amp):
+                sc = m(t, pad).float()
+            if combine == "prob":
+                sc = torch.softmax((sc / max(temperature, 1e-8)).masked_fill(~valid, float("-inf")), -1)
+            acc = sc if acc is None else acc + sc
+    acc = acc / (len(models) * len(perms))
+    if combine == "prob":
+        a = torch.multinomial(acc.masked_fill(~valid, 0) + 1e-30 * valid.float(), 1)[:, 0]
+    else:
+        a, _ = sample_action(acc, valid, temperature)
+    return to_env_action(a, r_cur, env.R)
+
+
 # ---------------------------------------------------------------------------- main
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--method", required=True, choices=["rd", "ifbo", "random_search"])
     ap.add_argument("--family", required=True, choices=["taskset", "pd1", "lcbench"])
-    ap.add_argument("--ckpt")
+    ap.add_argument("--ckpt", nargs="+", help="one or more checkpoints; several = score ensemble")
+    ap.add_argument("--hp-perms", type=int, default=1, help="TTA: identity + k-1 random hp-dimension orders")
+    ap.add_argument("--combine", default="score", choices=["score", "prob"], help="how TTA members are averaged")
     ap.add_argument("--seeds", type=int, default=10)
     ap.add_argument("--budget", type=int, default=1000)
     ap.add_argument("--n-shop", type=int, default=32)
@@ -138,21 +185,35 @@ def main():
                 wall[name_idx[nm]] += dt / args.seeds
                 print(f"[{k + 1}/{len(jobs)}] {nm} seed {s}: final {r[-1]:.4f} ({dt:.0f}s)", flush=True)
     else:
-        model, h = None, (1.0, 1.0)
+        model, models, h = None, [], (1.0, 1.0)
         if args.method == "rd":
             from .model import load_policy
-            ck = torch.load(args.ckpt, map_location=args.device)
-            model = load_policy(ck, args.device)
-            tc = ck["cfg"]["train"]
-            h = (args.h_start if args.h_start is not None else tc["h_start"],
-                 args.h_end if args.h_end is not None else tc["h_end"])
+            hs = set()
+            for path in args.ckpt:
+                ck = torch.load(path, map_location=args.device)
+                models.append(load_policy(ck, args.device))
+                tc = ck["cfg"]["train"]
+                hs.add((tc["h_start"], tc["h_end"]))
+            assert len(hs) == 1 or args.h_start is not None, f"checkpoints disagree on the horizon schedule: {hs}"
+            tc_h = hs.pop()
+            h = (args.h_start if args.h_start is not None else tc_h[0],
+                 args.h_end if args.h_end is not None else tc_h[1])
+            model = models[0]
+            tta = len(models) > 1 or args.hp_perms > 1
+            if tta:
+                assert not args.greedy and all(getattr(m, "pair_model", "bt") == "bt" for m in models), \
+                    "TTA: sampled BT scorers only"
         for i, task in enumerate(tasks):
             t0 = time.time()
             env = TabEnv(task, args.seeds, args.budget, n_shop=(args.n_shop or None), device=args.device, seed=0,
                          shop_mode=args.shop_mode)
+            perms = hp_perms(int(env.d[0]), args.hp_perms, seed=i) if args.method == "rd" else None
             with torch.no_grad():
                 while not env.done.all():
-                    if args.method == "rd":
+                    if args.method == "rd" and tta:
+                        a = tta_step(models, env, args.temperature, h, perms, args.combine,
+                                     amp=args.device.startswith("cuda"))
+                    elif args.method == "rd":
                         a = policy_step(model, env, args.temperature, args.greedy, h=h,
                                         amp=args.device.startswith("cuda"))
                     else:

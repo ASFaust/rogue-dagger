@@ -645,3 +645,19 @@ on every family even with its own best τ. Runs started are about equal at each 
 365-404), so the noise models are not systematically sharper; seed s2's low run count at τ 0.25 is one seed. The
 deploy-τ interaction is ruled out as the main cause. τ 0.25 stays the deploy default for focus03 (best on all
 three families there).
+
+## 2026-11-20: Prior work moves to its own repo; next steps
+
+The prior question (what should a learning-curve faker look like, and how do we measure that one is better) has
+grown into a project of its own: `../curve-faker`, with its own Claude session. Its README fixes the held-out data
+(all LCBench, all PD1, TaskSet's `FixedTextRNNClassification` family, and surrogates built on them) and lists the
+avenues and quality measures; one of them, from the user, is comparing statistics of HPO runs on fake vs real tasks.
+No more prior changes in this repo.
+
+Agreed order for rogue-dagger meanwhile (BACKLOG "Next steps"):
+1. Test-time augmentation, no training: averaging over training seeds, over models that trade families, and over
+   reorderings of the hyperparameter dimensions (user's idea; the prior's random BNN treats input dimensions
+   alike, so the scorer should not care about their order).
+2. Analyse why we lose on LCBench before training any more models.
+3. Train on real curves, starting with RL on the allowed TaskSet tasks (the user wants to try this; it unshelves
+   RL in the form of way (a) of key finding 2).
