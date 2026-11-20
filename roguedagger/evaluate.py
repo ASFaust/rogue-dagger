@@ -95,7 +95,7 @@ def run_ifbo_job(args):
     rng = np.random.default_rng(seed)
     while not env.done.all():
         env.step(ifbo_step(env, rng))
-    return task.name, seed, env.normalised_regret()[0].numpy(), time.time() - t0, int(env.n_runs[0])
+    return task.name, seed, env.normalised_regret()[0].numpy(), time.time() - t0, int(env.n_runs[0]), env.step_cfg[0].numpy()
 
 
 # ---------------------------------------------------------------------------- test-time augmentation
@@ -148,6 +148,13 @@ def main():
     ap.add_argument("--family", required=True, choices=["taskset", "pd1", "lcbench"])
     ap.add_argument("--ckpt", nargs="+", help="one or more checkpoints; several = score ensemble")
     ap.add_argument("--hp-perms", type=int, default=1, help="TTA: identity + k-1 random hp-dimension orders")
+    ap.add_argument("--hp-perm-pick", type=int, default=None,
+                    help="use only order j of the --hp-perms list (0 = identity): one fixed hp order, no averaging")
+    ap.add_argument("--hp-order", default=None,
+                    help="explicit hp order, e.g. 1,0,2,3: slot k gets hp order[k] (diagnostic; d must match)")
+    ap.add_argument("--random-slots", action="store_true",
+                    help="hps in random token slots, one draw per eval seed (for models trained with env.random_slots)")
+    ap.add_argument("--shop-bias", type=float, default=0.0, help="added to unseen-config scores (diagnostic)")
     ap.add_argument("--combine", default="score", choices=["score", "prob"], help="how TTA members are averaged")
     ap.add_argument("--seeds", type=int, default=10)
     ap.add_argument("--budget", type=int, default=1000)
@@ -173,14 +180,16 @@ def main():
     regret = np.zeros((len(tasks), args.seeds, args.budget), dtype=np.float32)
     wall = np.zeros(len(tasks))
     n_runs = np.zeros((len(tasks), args.seeds))
+    step_cfg = np.full((len(tasks), args.seeds, args.budget), -1, dtype=np.int16)   # config advanced at each step
 
     if args.method == "ifbo":
         import multiprocessing as mp
         jobs = [(t, s, args.budget) for t in tasks for s in range(args.seeds)]
         name_idx = {t.name: i for i, t in enumerate(tasks)}
         with mp.get_context("fork").Pool(args.workers) as pool:
-            for k, (nm, s, r, dt, nr) in enumerate(pool.imap_unordered(run_ifbo_job, jobs)):
+            for k, (nm, s, r, dt, nr, sc) in enumerate(pool.imap_unordered(run_ifbo_job, jobs)):
                 regret[name_idx[nm], s] = r
+                step_cfg[name_idx[nm], s] = sc
                 n_runs[name_idx[nm], s] = nr
                 wall[name_idx[nm]] += dt / args.seeds
                 print(f"[{k + 1}/{len(jobs)}] {nm} seed {s}: final {r[-1]:.4f} ({dt:.0f}s)", flush=True)
@@ -199,15 +208,21 @@ def main():
             h = (args.h_start if args.h_start is not None else tc_h[0],
                  args.h_end if args.h_end is not None else tc_h[1])
             model = models[0]
-            tta = len(models) > 1 or args.hp_perms > 1
+            tta = len(models) > 1 or args.hp_perms > 1 or args.hp_perm_pick is not None or args.hp_order is not None
             if tta:
                 assert not args.greedy and all(getattr(m, "pair_model", "bt") == "bt" for m in models), \
                     "TTA: sampled BT scorers only"
         for i, task in enumerate(tasks):
             t0 = time.time()
             env = TabEnv(task, args.seeds, args.budget, n_shop=(args.n_shop or None), device=args.device, seed=0,
-                         shop_mode=args.shop_mode)
+                         shop_mode=args.shop_mode, random_slots=args.random_slots)
             perms = hp_perms(int(env.d[0]), args.hp_perms, seed=i) if args.method == "rd" else None
+            if perms is not None and args.hp_order is not None:
+                order = [int(v) for v in args.hp_order.split(",")]
+                assert sorted(order) == list(range(int(env.d[0]))), f"--hp-order {order} does not fit d={int(env.d[0])}"
+                perms = [torch.tensor(order)]
+            if perms is not None and args.hp_perm_pick is not None:
+                perms = [perms[args.hp_perm_pick % len(perms)]]
             with torch.no_grad():
                 while not env.done.all():
                     if args.method == "rd" and tta:
@@ -215,17 +230,18 @@ def main():
                                      amp=args.device.startswith("cuda"))
                     elif args.method == "rd":
                         a = policy_step(model, env, args.temperature, args.greedy, h=h,
-                                        amp=args.device.startswith("cuda"))
+                                        amp=args.device.startswith("cuda"), shop_bias=args.shop_bias)
                     else:
                         a = random_search_step(env)
                     env.step(a)
             regret[i] = env.normalised_regret().cpu().numpy()
             n_runs[i] = env.n_runs.cpu().numpy()
+            step_cfg[i] = env.step_cfg.cpu().numpy()
             wall[i] = (time.time() - t0) / args.seeds
             print(f"{task.name}: final mean regret {regret[i, :, -1].mean():.4f} runs {n_runs[i].mean():.0f} "
                   f"({time.time() - t0:.0f}s)", flush=True)
 
-    np.savez(out_dir / f"{tag}.npz", regret=regret, tasks=np.array([t.name for t in tasks]), wall=wall, n_runs=n_runs,
+    np.savez(out_dir / f"{tag}.npz", regret=regret, tasks=np.array([t.name for t in tasks]), wall=wall, n_runs=n_runs, step_cfg=step_cfg,
              args=str(vars(args)))
     print(f"saved {out_dir / (tag + '.npz')}; mean final regret {regret[:, :, -1].mean():.4f}")
 

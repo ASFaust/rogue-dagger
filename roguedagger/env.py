@@ -43,6 +43,7 @@ class EnvConfig:
     ref_pool: int = 0                     # RL: random configs per task that set the regret scale (0 = off)
     prior_noise_scale: float = 1.0        # prior noise sd multiplier (1 = ifBO's prior)
     prior_noise_smooth: float = 0.0       # prior noise smoothing in points (0 = i.i.d., ifBO's prior)
+    random_slots: bool = False            # put the d active hps into random token slots (random order), per episode
 
 
 def _log_uniform_int(lo, hi, n, device, gen):
@@ -71,6 +72,7 @@ class ShopEnv:
         self.run_len = torch.zeros(E, R, dtype=torch.long, device=dev)
         self.run_last = torch.zeros(E, R, dtype=torch.long, device=dev)
         self.n_runs = torch.zeros(E, dtype=torch.long, device=dev)
+        self.slot_perm = (torch.arange(d_max, device=dev)[None].repeat(E, 1) if cfg.random_slots else None)
         self.shop_x = torch.zeros(E, N, D, device=dev)
         self.shop_curve = torch.zeros(E, N, L, device=dev)
         self.shop_cmin = torch.zeros(E, N, L, device=dev)
@@ -176,6 +178,8 @@ class ShopEnv:
         n, D = idx.numel(), self.d_max
         self._sample_spec(idx)
         self.prior.resample(idx, self.d[idx])
+        if self.cfg.random_slots:
+            self.slot_perm[idx] = torch.argsort(self._rand(n, D), dim=1)
         dmask = (torch.arange(D, device=self.dev)[None] < self.d[idx][:, None]).float()
         x = self._rand(n, 1, D) * dmask[:, None]
         c, cm = self._materialise(x, idx)

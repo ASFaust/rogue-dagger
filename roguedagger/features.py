@@ -52,6 +52,8 @@ class Observation:
     shop_x     [E, N, D]
     shop_valid [E, N]
     d, T, B, consumed, H, cap  [E]
+    slot_perm  [E, D] or None: hp k of env e goes to token slot slot_perm[e, k] (values and presence mask);
+               None = hp k in slot k (active hps always in slots 0..d-1)
     """
     run_curve: torch.Tensor
     run_len: torch.Tensor
@@ -65,12 +67,14 @@ class Observation:
     consumed: torch.Tensor
     H: torch.Tensor
     cap: torch.Tensor
+    slot_perm: torch.Tensor | None = None
 
 
 def from_env(env, H: torch.Tensor, r_cur: int | None = None) -> Observation:
     r = int(env.n_runs.max()) if r_cur is None else r_cur
     return Observation(env.run_curve[:, :r], env.run_len[:, :r], env.run_last[:, :r], env.run_x[:, :r],
-                       env.shop_x, env.shop_valid(), env.d, env.T, env.B, env.consumed, H, env.cap)
+                       env.shop_x, env.shop_valid(), env.d, env.T, env.B, env.consumed, H, env.cap,
+                       getattr(env, "slot_perm", None))
 
 
 def encode(o: Observation, d_max: int) -> tuple[torch.Tensor, torch.Tensor]:
@@ -154,6 +158,12 @@ def encode(o: Observation, d_max: int) -> tuple[torch.Tensor, torch.Tensor]:
     # hp presence mask on every non-global token
     dm = (torch.arange(d_max, device=dev)[None] < o.d[:, None]).float()
     tok[:, 1:, OFF_H + d_max:] = dm[:, None] * torch.cat([used, o.shop_valid], 1)[..., None].float()
+
+    if o.slot_perm is not None:   # move hp values + presence mask to their slots (inactive slots are all zero)
+        idx = o.slot_perm[:, None, :].expand(E, tok.shape[1] - 1, d_max)
+        for off in (OFF_H, OFF_H + d_max):
+            blk = tok[:, 1:, off:off + d_max]
+            tok[:, 1:, off:off + d_max] = torch.zeros_like(blk).scatter_(-1, idx, blk)
 
     pad = torch.cat([torch.zeros(E, 1, dtype=torch.bool, device=dev), ~used, ~o.shop_valid], 1)
     return tok, pad

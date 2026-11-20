@@ -99,7 +99,7 @@ class TabEnv:
 
     def __init__(self, task: Task, n_envs: int, budget: int = 1000, n_shop: int | None = 32,
                  device="cpu", seed: int = 0, d_max: int = 10, shop_mode: str = "uniform",
-                 p_mutate: float = 0.5, mutate_std: float = 0.1, mutate_topk: int = 5):
+                 p_mutate: float = 0.5, mutate_std: float = 0.1, mutate_topk: int = 5, random_slots: bool = False):
         self.task, self.E, self.dev, self.d_max = task, n_envs, torch.device(device), d_max
         self.shop_mode, self.p_mutate, self.mutate_std, self.mutate_topk = shop_mode, p_mutate, mutate_std, mutate_topk
         self.gen = torch.Generator(device=self.dev)
@@ -119,6 +119,12 @@ class TabEnv:
         self.T = torch.full((E,), Tn, dtype=torch.long, device=dev)
         self.B = torch.full((E,), budget, dtype=torch.long, device=dev)
         self.cap = torch.ones(E, dtype=torch.bool, device=dev)
+        # random token slots for the hps (models trained with env.random_slots); one draw per env, seeded
+        # (own generator, so first configs and shops are the same as without random slots)
+        g_slot = torch.Generator(device=self.dev)
+        g_slot.manual_seed(seed + 7919)
+        self.slot_perm = (torch.argsort(torch.rand(E, d_max, device=dev, generator=g_slot), dim=1)
+                          if random_slots else None)
         self.run_cfg = torch.zeros(E, R, dtype=torch.long, device=dev)
         self.run_curve = torch.zeros(E, R, Tn, device=dev)
         self.run_x = torch.zeros(E, R, d_max, device=dev)
@@ -129,6 +135,7 @@ class TabEnv:
         self.consumed = torch.zeros(E, dtype=torch.long, device=dev)
         self.best = torch.full((E,), float("inf"), device=dev)
         self.trace = torch.zeros(E, budget, device=dev)   # incumbent after each step
+        self.step_cfg = torch.full((E, budget), -1, dtype=torch.long, device=dev)   # config advanced at each step
         # seed: one random config, one step (Algorithm 1 of the ifBO paper)
         first = torch.randint(0, n_cfg, (E,), device=dev, generator=self.gen)
         self._start(torch.arange(E, device=dev), first)
@@ -185,6 +192,7 @@ class TabEnv:
         self.run_last[e, run] = self.consumed[e]
         self.best[e] = torch.minimum(self.best[e], y)
         self.trace[e, self.consumed[e] - 1] = self.best[e]
+        self.step_cfg[e, self.consumed[e] - 1] = self.run_cfg[e, run]
 
     def _draw_shop(self):
         """n unseen configs per env, without replacement (all unseen if full_table)."""

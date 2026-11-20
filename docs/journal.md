@@ -661,3 +661,83 @@ Agreed order for rogue-dagger meanwhile (BACKLOG "Next steps"):
 2. Analyse why we lose on LCBench before training any more models.
 3. Train on real curves, starting with RL on the allowed TaskSet tasks (the user wants to try this; it unshelves
    RL in the form of way (a) of key finding 2).
+
+## 2026-11-20 night: Step 1 (test-time augmentation) and step 2 (why we lose on LCBench); a slot bug
+
+All evals: full table, τ 0.25 unless noted. New tools: `evaluate.py --ckpt a b c` (score ensemble), `--hp-perms K`
+(average over hp orders), `--hp-perm-pick j` / `--hp-order` (one fixed order), `--shop-bias b` (bonus on unseen-config
+scores, diagnostic), and `step_cfg` (config advanced at each step) saved in every eval npz;
+`scripts/trace_stats.py` (behaviour per episode), `scripts/shop_rank.py` (ranking of unseen configs at fixed states),
+`scripts/twin_starts.py` (start timing on prior twins), `scripts/best_of_k.py` (how rare top configs are).
+
+### Seed ensembles (step 1a, 1b)
+
+| | TaskSet | PD1 | LCBench |
+|---|---|---|---|
+| FT-PFN | 0.053 | 0.0151 | 0.0076 |
+| `wide-focus03`, 3 single seeds (mean) | 0.056 | 0.0095 | 0.0124 |
+| 3-seed ensemble, score average | 0.049 | 0.0103 | 0.0107 |
+| 3-seed ensemble, probability average | 0.057 | 0.0108 | 0.0104 |
+| `wide`, 3 single seeds (mean) | 0.056 | 0.0153 | 0.0161 |
+| `wide` 3-seed ensemble | **0.038** | 0.0122 | 0.0139 |
+| focus03 ×3 + big-shop ×2 | (running) | 0.0149 | (running) |
+
+focus03 ensemble vs its 3 seeds (seed-aware): TaskSet +0.007 [−0.006, +0.022], PD1 −0.001 [−0.005, +0.003], LCBench
++0.002 [−0.001, +0.005]: small, n.s. Score averaging ≥ probability averaging. Mixing in big-shop models drags PD1
+down. The `wide` ensemble on TaskSet (0.038) is the best TaskSet number so far (to be checked seed-aware).
+
+### Step 2: why we lose on LCBench
+
+1. **Over the budget:** we are *ahead* of FT-PFN at steps 5–20 (0.167 vs 0.186 at step 10) and fall behind from
+   step ~50; at the end FT-PFN reaches regret 0 (finds the table's best config) on 9 of the 12 tasks we lose most.
+   We lose most on clean tasks (low noise, high early-to-final rank correlation, best epoch late) and win on noisy
+   ones (connect-4, airlines); per-task correlations |ρ| ≈ 0.3.
+2. **Traces** (`trace_stats.py`; FT-PFN rerun with traces, `trace-ifbo`, same result 0.0076):
+
+   | | runs | best config started | top-10 started | selection error | training error | starts in 2nd half |
+   |---|---|---|---|---|---|---|
+   | FT-PFN | 206 | 65 % | 6.9 | 0.0023 | 0.0054 | 39 % |
+   | focus03 s0 / s1 / s2 | 134 / 263 / 309 | 29 / 48 / 59 % | 3.0 / 4.7 / 5.4 | 0.010 / 0.007 / 0.004 | 0.003 / 0.005 / 0.007 | 11 / 17 / 18 % |
+
+   Selection error = regret of the best config ever started (if trained fully); training error = the rest. Our loss is
+   selection: we start too few of the top configs. FT-PFN starts new configs at a steady rate to the end (per tenth
+   of the budget: 32 25 25 22 21 18 17 16 15 14); we front-load (seed 0: 64 28 13 7 5 4 3 3 3 2). FT-PFN's eventual
+   best config was started at step 321 on average.
+3. **Ranking unseen configs is not the main problem** (`shop_rank.py`, replayed states of our episodes): Spearman of
+   score vs true best value over unseen configs is similar for our scorer, FT-PFN and a 5-NN average of the started
+   runs (≈ 0.55–0.60); FT-PFN's top-10 is better early (step 100: 0.024 vs 0.043 regret), not later. Our scorer ranks
+   unseen configs no better than 5-NN on raw hps.
+4. **The prior teaches the front-loading**: on matched capped twins (shop 512, τ 0.25) the policy does the same (49
+   22 10 7 6 6 6 6 6 4 starts per tenth). Top configs are not rarer on real LCBench than on its twins (best of 50 random
+   configs: 0.042 real vs 0.063 prior; real TaskSet is the family with rare tops).
+5. **Exploration bonus** (`--shop-bias b` on unseen-config scores; swept on the benchmark, so optimistic):
+
+   | b | 0 | 0.1 | 0.2 | 0.4 | 0.8 |
+   |---|---|---|---|---|---|
+   | prior twins (capped, 4 per task) | 0.0254 | 0.0230 | 0.0220 | 0.0270 | 0.0280 |
+   | LCBench (seed 0) | 0.0140 | 0.0124 | 0.0105 | 0.0108 | **0.0085** |
+
+   Two parts: (a) the policy under-explores *on the prior itself* (optimum b ≈ 0.1–0.2); (b) real LCBench rewards much
+   more exploration than the prior (still improving at 0.8, close to FT-PFN's 0.0076). Across 6 focus03-type models
+   (3 seeds, 3 noise-prior seeds), LCBench regret tracks the number of runs started (309 → 0.010, 105 → 0.028), and
+   that number varies 3× between training seeds: the exploration level is poorly pinned down by training, which is
+   also a likely source of seed noise. The noise-fixed prior did *not* make models explore more (105–231 runs), so
+   "prior noise makes probing worthless" is not supported.
+
+### The slot bug
+
+The scorer is not invariant to the order of the hyperparameters (score correlation across orders 0.70–0.95 on
+LCBench). Averaging over 8 random orders made LCBench *worse* (0.0224 vs 0.0140); single random orders give 0.0247,
+0.0243. Cause: the prior always put the d active hps into token slots 0..d−1, with d ~ U{1..10}, so slot k was
+active in only (10−k)/10 of training tasks, and the model never had to be order-invariant. In the benchmarks' column
+order the most important hp happens to sit in a low slot: PD1's learning rate in slot 0 (most important on all 28
+tasks; PD1 is where we beat FT-PFN), LCBench's learning rate in slot 1 (most important on 21/35). Direct test on
+LCBench (seed 0): learning rate in slot 0: 0.0152; in slot 6: **0.0272**; original order 0.0140. Every result so far
+depended on the benchmarks' column order. The user called it an implementation error: slots should be randomised.
+
+Fix: `env.random_slots` (training: per episode, the d hps go to a random subset of the d_max slots in random order,
+presence mask moves with them; implemented in `features.encode` via `Observation.slot_perm`, test
+`test_random_slots_move_values_and_mask`); `evaluate.py --random-slots` (one random placement per eval seed, own RNG
+so episodes are otherwise identical). Training `wide-focus03-slots-v1/-s1/-s2` (configs/wide_focus03_slots.yaml,
+GPUs 3-5, runs/logs/slots_runs.sh, tags wf03slots*), evals at full table τ 0.25 and shop 32 τ 1 with random slots.
+The remaining hp-order TTA evals of the old models were stopped (moot).

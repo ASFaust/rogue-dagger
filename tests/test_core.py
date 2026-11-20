@@ -151,3 +151,25 @@ def test_thurstone_scorer_loss_and_thompson():
     l1, *_ = pairwise_loss(s, torch.tensor([[0.1, 0.2]]), torch.ones(1, 2, dtype=torch.bool), sigma=torch.ones(1, 2))
     l2, *_ = pairwise_loss(s, torch.tensor([[0.2, 0.1]]), torch.ones(1, 2, dtype=torch.bool), sigma=torch.ones(1, 2))
     assert l1 < l2
+
+
+def test_random_slots_move_values_and_mask():
+    from roguedagger.features import OFF_H
+    cfg = EnvConfig(random_slots=True, d_range=(2, 6))
+    env = ShopEnv(6, cfg, "cpu", seed=3)
+    for _ in range(5):
+        env.step(env.choosable().float().multinomial(1)[:, 0])
+    D = env.d_max
+    obs = from_env(env, env.horizon())
+    tok, _ = encode(obs, D)
+    obs.slot_perm = None
+    ref, _ = encode(obs, D)
+    for e in range(env.E):
+        p, d = env.slot_perm[e], int(env.d[e])
+        assert sorted(p.tolist()) == list(range(D))
+        # hp k now sits in slot p[k]; the presence mask is set exactly at the slots of the d active hps
+        assert torch.allclose(tok[e, 1:, OFF_H + p], ref[e, 1:, OFF_H:OFF_H + D])
+        m = tok[e, 1, OFF_H + D:OFF_H + 2 * D]
+        assert set(m.nonzero()[:, 0].tolist()) == set(p[:d].tolist())
+        # everything outside the hp block is unchanged
+        assert torch.equal(tok[e, :, :OFF_H], ref[e, :, :OFF_H])

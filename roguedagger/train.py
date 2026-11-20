@@ -115,7 +115,8 @@ def crossing_pairs(env, r_cur, valid, P):
     return idx[:, :P], idx[:, P:], hstar, ok, s0
 
 
-def policy_step(model, env, temperature=1.0, greedy=False, h=(1.0, 1.0), amp=True):
+def policy_step(model, env, temperature=1.0, greedy=False, h=(1.0, 1.0), amp=True, shop_bias=0.0):
+    """shop_bias: added to every shop (unseen config) score before sampling; deploy-time diagnostic knob."""
     H = env.horizon(*h)
     obs = from_env(env, H)
     r_cur = obs.run_len.shape[1]
@@ -124,6 +125,9 @@ def policy_step(model, env, temperature=1.0, greedy=False, h=(1.0, 1.0), amp=Tru
     with torch.autocast("cuda", dtype=torch.bfloat16, enabled=amp):
         s = model(tok, pad, dist=True) if th else model(tok, pad)
     valid = torch.cat([env.choosable()[:, :r_cur], env.choosable()[:, env.R:]], 1)
+    if shop_bias and not th:
+        s = s.float().clone()
+        s[:, r_cur:] += shop_bias
     if th:   # Thompson sampling; temperature = sigma scale
         a, _ = thompson_action(s[0].float(), s[1].float(), valid, temperature, greedy)
     else:

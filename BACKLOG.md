@@ -2,12 +2,16 @@
 
 ## Next steps (agreed with the user 2026-11-20), in this order
 Prior changes now live in the sister repo `../curve-faker` (held-out rules in its README); none here.
-1. [ ] **Test-time augmentation, no training.** Scores averaged over (a) the trained seeds of one config
+1. [~] **Test-time augmentation, no training.** Seed ensembles: small n.s. gains (journal 2026-11-20 night); hp-order
+   averaging exposed the slot bug (fixed, retraining). Re-test hp-placement TTA on the `slots` models. Scores averaged over (a) the trained seeds of one config
    (3× `wide-focus03`, 3× `wide`), (b) models that trade families (e.g. focus03 + big-shop), and (c) random
    reorderings of the hyperparameter dimensions (the ifBO prior's BNN is exchangeable in its inputs, so the scorer
    should be too; the average removes what it isn't). Also: averaging scores vs averaging policy probabilities.
    Measure each effect alone, then combined, vs the single models (seed-aware CIs).
-2. [ ] **Why we lose on LCBench, analysis only, before training any more models.** Per task and over the budget
+2. [~] **Why we lose on LCBench**: selection error from front-loaded exploration (we stop starting new configs; FT-PFN
+   keeps going), learned from the prior, plus the slot bug. Exploration bonus closes most of the gap (diagnostic).
+   Open: why the prior rewards less exploration than LCBench; how to get the right exploration level from training.
+   Original item: **analysis only, before training any more models.** Per task and over the budget
    vs FT-PFN: regret over time (early regret is about 2× FT-PFN's), runs started and when, fidelity per run,
    which configs get picked; what is special about LCBench (51-epoch accuracy curves, 7 HPs, saturation).
 3. [ ] **Train on real curves: RL on the allowed TaskSet tasks** (docs/future-ideas/real-curve-training.md).
