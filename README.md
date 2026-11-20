@@ -1,6 +1,7 @@
 # Rogue&Dagger HPO
 
-> Picking this up in a new session? Start with [HANDOFF.md](HANDOFF.md).
+> Picking this up in a new session? Read the latest entries of [docs/journal.md](docs/journal.md), then
+> [BACKLOG.md](BACKLOG.md) and [docs/results.md](docs/results.md).
 
 Freeze-thaw hyperparameter optimisation played like a roguelike deckbuilder.
 Your **deck** is the set of training runs you have started. Each step a new
@@ -88,8 +89,9 @@ venv, and `submitit` is made optional. The weights go in `data/ftpfn/`.
 ## Layout
 
 ```
-roguedagger/    package: prior.py, env.py, features.py, model.py, train.py (pairwise), rl.py (PPO), bench.py, evaluate.py
-docs/           rl.md: design of the RL extension
+roguedagger/    package: prior.py, env.py, features.py, model.py, train.py (pairwise), rl.py (PPO), sac.py (discrete SAC), bench.py, evaluate.py
+docs/           journal.md (research journal), results.md (all models, generated), rl.md (RL extension, shelved),
+                future-ideas/ (one design note per idea)
 configs/        YAML configs for training / eval
 scripts/        data download + processing
 third_party/    vendored ifbo (FT-PFN)
@@ -133,7 +135,7 @@ See [BACKLOG.md](BACKLOG.md) for what is done and what is open.
 [docs/journal.md](docs/journal.md) is the research journal: what was tried, why, what we learned, and the key findings.
 [docs/future-ideas/](docs/future-ideas/README.md) has one design note per idea that isn't queued yet.
 
-## Results so far (2026-11-12, work in progress)
+## Results so far (last updated 2026-11-16)
 
 > **Seed noise (2026-11-15):** retraining the same config with another seed changes results by up to 0.017 (TaskSet),
 > 0.013 (PD1) and 0.005 (LCBench), and is "significant" under the task-level CIs below. Those CIs don't include
