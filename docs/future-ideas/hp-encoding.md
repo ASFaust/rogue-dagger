@@ -1,7 +1,35 @@
 # Hyperparameter encoding without slot bias
 
-Status: design, 2026-11-20 (BACKLOG item 4). Nothing implemented. Background: journal 2026-11-20 entries "All models
-trained before 2026-11-20 have a slot bias", "Slots models: results", "Twin diagnostic".
+Status: **decided 2026-11-20, to build: idea 1 (axial cells) and idea 3 (relative features).** Nothing implemented
+yet. This file is the starting point for a fresh agent; it is the current BACKLOG item 4.
+Background: journal 2026-11-20 entries "All models trained before 2026-11-20 have a slot bias", "Slots models:
+results", "Twin diagnostic".
+
+## Handoff: where things stand
+
+- User decision: build idea 1 and idea 3 (below), each as its own model option, one change at a time. Idea 2 not now.
+- Baselines to beat (full table τ 0.25, mean final regret; all slot-fair):
+
+  | | TaskSet | PD1 | LCBench |
+  |---|---|---|---|
+  | FT-PFN (`ifbo`) | 0.0534 | 0.0151 | 0.0076 |
+  | focus03 at one random hp order per task (`pick1-wfocus03`, `pick1-wf03s1`, `pick1-wf03s2`) | 0.0652 | 0.0111 | 0.0192 |
+  | slots models (`wf03slots`, `wf03slotss1`, `wf03slotss2`) | 0.0621 | 0.0225 | 0.0179 |
+  | slots + 8-placement TTA (`stta8-wf03slots*`), s0 / s1 / s2 | 0.040 / 0.063 / 0.047 | 0.026 / – / – | 0.015 / – / 0.017 |
+
+  Eval files: `runs/eval/<family>/<tag>-n0-t0.25.npz`. Some `stta8-*` runs (s1, s2, `stta8-ens-wf03slotsx3`) were
+  still running at handoff (`runs/logs/slot_tta2.sh`, logs `runs/logs/stta8-*.log`); add them to the journal table
+  "Slots models: results" when done.
+- Code to know: `roguedagger/features.py` (token layout; hp block [59:79] = 10 values + 10 presence mask;
+  `Observation.slot_perm` / `encode` handle random slots), `roguedagger/model.py` (`Scorer`: MLP embed of the whole
+  token → 6-layer set transformer → per-token score), `roguedagger/env.py` (`EnvConfig.random_slots`, prior configs
+  iid U(0,1) per dim), `roguedagger/bench.py` (`TabEnv`, `random_slots`), `roguedagger/evaluate.py` (`--random-slots`,
+  `--hp-perms K` = placement TTA for slots models via `tta_step(full_slots=True)`), `configs/wide_focus03_slots.yaml`
+  (the config to copy).
+- Tools: `scripts/compare_seeds.py` (seed-aware CIs), `scripts/trace_stats.py` (runs, selection vs training error,
+  needs PYTHONPATH=.), `scripts/twin_rank.py` (ranking of unseen configs vs 5-NN / FT-PFN / ARD-GP, real and twin).
+- Rules: GPUs 3, 4, 5 only (6 is curve-faker's), `CUDA_DEVICE_ORDER=PCI_BUS_ID`, venv
+  `/shared/work/venv`; kill processes by PID, never by pattern; commit locally, push only when the user asks.
 
 ## The symmetry we want
 

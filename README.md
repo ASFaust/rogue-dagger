@@ -1,7 +1,8 @@
 # Rogue&Dagger HPO
 
 > Picking this up in a new session? Read the latest entries of [docs/journal.md](docs/journal.md), then
-> [BACKLOG.md](BACKLOG.md) and [docs/results.md](docs/results.md).
+> [BACKLOG.md](BACKLOG.md) and [docs/results.md](docs/results.md). Current focus (2026-11-20): a new hp encoding,
+> handoff in [docs/future-ideas/hp-encoding.md](docs/future-ideas/hp-encoding.md).
 
 Freeze-thaw hyperparameter optimisation played like a roguelike deckbuilder.
 Your **deck** is the set of training runs you have started. Each step a new
@@ -136,6 +137,10 @@ See [BACKLOG.md](BACKLOG.md) for what is done and what is open.
 [docs/future-ideas/](docs/future-ideas/README.md) has one design note per idea that isn't queued yet.
 
 ## Results so far (last updated 2026-11-16)
+
+> **Slot bias (2026-11-20):** every model below depends on the benchmarks' hp column order, which happens to suit it
+> (journal 2026-11-20). At a random order focus03 gets TaskSet 0.065, PD1 0.011, LCBench 0.019; slot-fair baselines
+> are in docs/future-ideas/hp-encoding.md.
 
 > **Seed noise (2026-11-15):** retraining the same config with another seed changes results by up to 0.017 (TaskSet),
 > 0.013 (PD1) and 0.005 (LCBench), and is "significant" under the task-level CIs below. Those CIs don't include
