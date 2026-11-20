@@ -1,6 +1,7 @@
 # Backlog
 
 ## Next steps (agreed with the user 2026-11-20), in this order
+Order since 2026-11-20 (user): item 4 now; 5 and 3 stay in the backlog until then.
 Prior changes now live in the sister repo `../curve-faker` (held-out rules in its README); none here.
 1. [~] **Test-time augmentation, no training.** Seed ensembles: small n.s. gains (journal 2026-11-20 night); hp-order
    averaging exposed the slot bug (fixed). `slots` models: level with old models at random order on TaskSet/LCBench,
@@ -20,6 +21,11 @@ Prior changes now live in the sister repo `../curve-faker` (held-out rules in it
    Allowed = TaskSet outside the `FixedTextRNNClassification` family (`data/taskset_dev`, 240 tasks, more
    downloadable); PD1 and LCBench are then clean transfer tests, TaskSet results need a family caveat.
    Only after 1 and 2.
+4. [ ] **Hyperparameter encoding without slot bias** (user's priority, 2026-11-20): twin diagnostic, then the top 3
+   encoding designs (docs/future-ideas/hp-encoding.md, in progress).
+5. [ ] **Exploration level** (parked 2026-11-20): we under-explore on LCBench, the slots models over-explore on PD1's
+   long-curve tasks. Exploration-bonus diagnostic took LCBench seed 0 from 0.0140 to 0.0085 at b 0.8 (tuned on the test
+   family, weak). Next: pick b on non-test data, run on all families. docs/future-ideas/exploration-bonus.md.
 
 ## Now (v1 pipeline)
 - [x] Repo, README, backlog
