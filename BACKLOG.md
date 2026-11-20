@@ -3,7 +3,9 @@
 ## Next steps (agreed with the user 2026-11-20), in this order
 Prior changes now live in the sister repo `../curve-faker` (held-out rules in its README); none here.
 1. [~] **Test-time augmentation, no training.** Seed ensembles: small n.s. gains (journal 2026-11-20 night); hp-order
-   averaging exposed the slot bug (fixed, retraining). Re-test hp-placement TTA on the `slots` models. Scores averaged over (a) the trained seeds of one config
+   averaging exposed the slot bug (fixed). `slots` models: level with old models at random order on TaskSet/LCBench,
+   worse on PD1 (training error, over-exploration on long curves); 8-placement TTA helps them (TaskSet s0 0.059 → 0.040).
+   Running TTA on all seeds + ensemble × TTA. Scores averaged over (a) the trained seeds of one config
    (3× `wide-focus03`, 3× `wide`), (b) models that trade families (e.g. focus03 + big-shop), and (c) random
    reorderings of the hyperparameter dimensions (the ifBO prior's BNN is exchangeable in its inputs, so the scorer
    should be too; the average removes what it isn't). Also: averaging scores vs averaging policy probabilities.

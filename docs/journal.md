@@ -680,11 +680,11 @@ scores, diagnostic), and `step_cfg` (config advanced at each step) saved in ever
 | 3-seed ensemble, probability average | 0.057 | 0.0108 | 0.0104 |
 | `wide`, 3 single seeds (mean) | 0.056 | 0.0153 | 0.0161 |
 | `wide` 3-seed ensemble | **0.038** | 0.0122 | 0.0139 |
-| focus03 ×3 + big-shop ×2 | (running) | 0.0149 | (running) |
+| focus03 ×3 + big-shop ×2 | 0.042 | 0.0149 | 0.0103 |
 
 focus03 ensemble vs its 3 seeds (seed-aware): TaskSet +0.007 [−0.006, +0.022], PD1 −0.001 [−0.005, +0.003], LCBench
 +0.002 [−0.001, +0.005]: small, n.s. Score averaging ≥ probability averaging. Mixing in big-shop models drags PD1
-down. The `wide` ensemble on TaskSet (0.038) is the best TaskSet number so far (to be checked seed-aware).
+down but helps TaskSet (0.042; vs the focus03 ensemble +0.007 [−0.000, +0.014], vs FT-PFN +0.011 [−0.006, +0.031]). The `wide` ensemble on TaskSet (0.038) is the best TaskSet number so far: vs its 3 single seeds +0.017 [+0.006, +0.031] (20/24 tasks, CI excludes 0); PD1 +0.003, LCBench +0.002 n.s. Ensembling helps `wide` more than `focus03`.
 
 ### Step 2: why we lose on LCBench
 
@@ -749,3 +749,35 @@ presence mask moves with them; implemented in `features.encode` via `Observation
 so episodes are otherwise identical). Training `wide-focus03-slots-v1/-s1/-s2` (configs/wide_focus03_slots.yaml,
 GPUs 3-5, runs/logs/slots_runs.sh, tags wf03slots*), evals at full table τ 0.25 and shop 32 τ 1 with random slots.
 The remaining hp-order TTA evals of the old models were stopped (moot).
+
+### Slots models: results (2026-11-20 morning)
+
+Full table τ 0.25, mean final regret; `f03 random order` = old focus03 seeds under one fixed random hp order per task
+(`pick1-*`, the fair baseline: no lucky column order). Seed-aware CIs (`compare_seeds.py`), gain = row better than slots.
+
+| | TaskSet | PD1 | LCBench |
+|---|---|---|---|
+| FT-PFN | 0.0534 | 0.0151 | 0.0076 |
+| focus03, original order (3 seeds) | 0.0556 | 0.0095 | 0.0124 |
+| focus03, random order (3 seeds) | 0.0652 | 0.0111 | 0.0192 |
+| **slots** (3 seeds, random placement) | 0.0621 | 0.0225 | 0.0179 |
+| slots 3-seed ensemble | 0.0457 | 0.0209 | 0.0147 |
+| slots s0 + 8-placement TTA | 0.0396 | 0.0259 | 0.0145 |
+
+- vs focus03 at random order the slots models are level on TaskSet (−0.003 n.s.) and LCBench (−0.001 n.s.) and
+  clearly **worse on PD1** (+0.011 [+0.003, +0.021] for focus03-random). vs the lucky original order they lose
+  everywhere (LCBench +0.006 [+0.002, +0.010], PD1 +0.013 [+0.005, +0.024]).
+- So the original order's advantage was real and large (focus03 original vs random: LCBench 0.0124 vs 0.0192) and
+  random-slot training did not recover it: an order-invariant model is so far a worse model on real data, although on
+  the prior it nearly matches (synthetic eval at 100k: 0.036/0.042/0.044 vs focus03 0.037/0.037/0.039).
+- **PD1 failure is training error, not selection**: the slots models start the right configs (selection error
+  0.0013 vs 0.0011–0.0015) but don't train them (training error 0.025 vs 0.011). Concentrated on the imagenet_resnet
+  and translate_xformer tasks (long curves): e.g. imagenet_resnet_256-2 191 runs, best config at 3 % fidelity
+  (focus03-random: 129 runs, 27 %). The slots models keep starting new configs (late_new 0.17–0.19 vs 0.10–0.16).
+- **Placement TTA now helps** (the model is trained to be invariant, so averaging removes placement noise instead of
+  moving it off-distribution): s0 TaskSet 0.0587 → 0.0396 (+0.019 [−0.000, +0.044], 17/24 tasks), LCBench
+  0.0173 → 0.0145 (+0.003 [−0.000, +0.006]), PD1 no change. It cuts both selection error (TaskSet 0.030 → 0.022,
+  LCBench 0.010 → 0.008) and training error (TaskSet 0.029 → 0.018). Running on seeds 1, 2 and ensemble × TTA
+  (runs/logs/slot_tta2.sh).
+- Exploration: on LCBench the slots models start fewer runs than focus03 s1/s2 (163–212 vs 263–309) and selection
+  error stays ~0.010: random slots do not fix the LCBench exploration gap.

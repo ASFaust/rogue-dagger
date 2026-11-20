@@ -114,8 +114,10 @@ def hp_perms(d: int, k: int, seed: int) -> list[torch.Tensor]:
 
 
 @torch.no_grad()
-def tta_step(models, env, temperature, h, perms, combine="score", amp=True):
+def tta_step(models, env, temperature, h, perms, combine="score", amp=True, full_slots=False):
     """Policy step averaged over models x hp-dimension orders.
+    full_slots=False: perms reorder the first d value slots (mask unchanged).
+    full_slots=True: perms are over all d_max slots and move values and mask together (random-slots models).
     combine='score': softmax(mean score / T) (product of experts); 'prob': mean of softmax(score / T) (mixture)."""
     H = env.horizon(*h)
     obs = from_env(env, H)
@@ -127,7 +129,12 @@ def tta_step(models, env, temperature, h, perms, combine="score", amp=True):
     for m in models:
         for p in perms:
             t = tok.clone()
-            t[..., OFF_H:OFF_H + d] = tok[..., OFF_H + p.to(tok.device)]   # mask slots unchanged: first d stay set
+            if full_slots:
+                q = p.to(tok.device)
+                for off in (OFF_H, OFF_H + env.d_max):
+                    t[:, 1:, off:off + env.d_max] = tok[:, 1:, off + q]
+            else:
+                t[..., OFF_H:OFF_H + d] = tok[..., OFF_H + p.to(tok.device)]   # mask slots unchanged: first d stay set
             with torch.autocast("cuda", dtype=torch.bfloat16, enabled=amp):
                 sc = m(t, pad).float()
             if combine == "prob":
@@ -216,7 +223,10 @@ def main():
             t0 = time.time()
             env = TabEnv(task, args.seeds, args.budget, n_shop=(args.n_shop or None), device=args.device, seed=0,
                          shop_mode=args.shop_mode, random_slots=args.random_slots)
-            perms = hp_perms(int(env.d[0]), args.hp_perms, seed=i) if args.method == "rd" else None
+            # random-slots models: TTA moves whole slots (values + mask) over all d_max slots
+            full_slots = args.random_slots and args.hp_perms > 1
+            perms = (hp_perms(env.d_max if full_slots else int(env.d[0]), args.hp_perms, seed=i)
+                     if args.method == "rd" else None)
             if perms is not None and args.hp_order is not None:
                 order = [int(v) for v in args.hp_order.split(",")]
                 assert sorted(order) == list(range(int(env.d[0]))), f"--hp-order {order} does not fit d={int(env.d[0])}"
@@ -227,7 +237,7 @@ def main():
                 while not env.done.all():
                     if args.method == "rd" and tta:
                         a = tta_step(models, env, args.temperature, h, perms, args.combine,
-                                     amp=args.device.startswith("cuda"))
+                                     amp=args.device.startswith("cuda"), full_slots=full_slots)
                     elif args.method == "rd":
                         a = policy_step(model, env, args.temperature, args.greedy, h=h,
                                         amp=args.device.startswith("cuda"), shop_bias=args.shop_bias)
