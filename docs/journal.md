@@ -806,3 +806,40 @@ vs 0.0111, LCBench 0.0124 vs 0.0192. Comparisons between these models at the sam
 (same bias), but their absolute standing against FT-PFN is optimistic, most of all on LCBench, and whatever
 won us PD1 is partly the lucky slot of PD1's learning rate (slot 0). Fair comparisons from now on: models with
 random slots, or old models averaged over random orders.
+
+## 2026-11-20: Twin diagnostic: on the prior, nobody ranks unseen configs better than 5-NN
+
+Question (user): is our LCBench ranking of unseen configs kNN-level because of the hp encoding / model, or because
+the prior has no more to teach? `scripts/twin_rank.py`: per LCBench task a twin table (the task's own configs X,
+curves from one ifBO prior task with the same d and T); the model runs the episode (full table, τ 0.25), and at steps
+100/300/600 the unseen configs are ranked by our scorer (rd), FT-PFN (MFPI at T), 5-NN, and an ARD-GP (sklearn,
+Matern-5/2 with one lengthscale per dim, fitted in-context to the runs' best values). Spearman ρ against each config's
+true best value, and the regret of the best of each method's top 10. focus03 seed 0, 35 tasks × 3 episodes.
+
+| step 300 | ρ rd / kNN / FT-PFN / ARD | top-10 regret rd / kNN / FT-PFN / ARD |
+|---|---|---|
+| real LCBench | 0.59 / 0.57 / 0.45 / 0.54 | 0.031 / 0.037 / **0.024** / 0.031 |
+| twin, noisy target | 0.33 / 0.37 / 0.34 / – | 0.068 / 0.060 / 0.068 / – |
+| twin, noise-free target | 0.35 / 0.40 / 0.37 / 0.40 | 0.116 / 0.113 / 0.129 / 0.117 |
+
+(Two noise-free runs, rd/kNN within ±0.03 between them; step 100 and 600 look the same. The slots model: same
+pattern, real ρ 0.59 vs kNN 0.53, twin 0.30 vs 0.30.)
+
+- **On the prior, nothing beats 5-NN**, not FT-PFN (trained on exactly this prior), not an in-context ARD-GP. Twins
+  are much harder than real LCBench (ρ ≈ 0.35 vs 0.57), and a noise-free target barely helps: the random-BNN hp map
+  over LCBench's configs carries little beyond local similarity. A model trained on this prior cannot learn ranking
+  the prior doesn't contain, whatever its encoding.
+- On the twins our scorer is a bit *below* kNN (0.28–0.35 vs 0.37–0.41); on real data a bit above (0.59–0.63 vs
+  0.57). Possible cause: training shops have 4–64 configs, a full table ~1000 (untested).
+- FT-PFN's real-data edge is at the top of the ranking (top-10 0.024 vs our 0.031–0.042) with the *worst* ρ: MFPI
+  prefers configs with upside, a decision rule rather than better discrimination. ARD-GP reaches it by step 600
+  (top-10 0.028 vs FT-PFN 0.025).
+
+Consequence for the hp-encoding work (BACKLOG item 4): the expected gain is invariance (no slot bias, no TTA, no
+capacity spent on learning invariance; the slots models' PD1 loss), not discrimination beyond kNN. Better
+discrimination has to come from data: curve-faker, or real curves (BACKLOG item 3). The LCBench gap remains mostly
+exploration level (BACKLOG item 5).
+
+Placement TTA on the other slots seeds (8 placements): TaskSet s1 0.0651 → 0.0625, s2 0.0627 → 0.0468 (s0
+0.0587 → 0.0396); LCBench s2 0.0189 → 0.0170; 3-seed ensemble × 8 placements TaskSet 0.0478 (ensemble alone 0.0457).
+Remaining families still running.

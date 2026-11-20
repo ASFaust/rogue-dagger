@@ -22,7 +22,8 @@ Prior changes now live in the sister repo `../curve-faker` (held-out rules in it
    downloadable); PD1 and LCBench are then clean transfer tests, TaskSet results need a family caveat.
    Only after 1 and 2.
 4. [ ] **Hyperparameter encoding without slot bias** (user's priority, 2026-11-20): twin diagnostic, then the top 3
-   encoding designs (docs/future-ideas/hp-encoding.md, in progress).
+   encoding designs (docs/future-ideas/hp-encoding.md). Twin diagnostic done: on the prior nobody beats 5-NN at
+   ranking, so the target is invariance, not discrimination. Design note written; waiting for a pick.
 5. [ ] **Exploration level** (parked 2026-11-20): we under-explore on LCBench, the slots models over-explore on PD1's
    long-curve tasks. Exploration-bonus diagnostic took LCBench seed 0 from 0.0140 to 0.0085 at b 0.8 (tuned on the test
    family, weak). Next: pick b on non-test data, run on all families. docs/future-ideas/exploration-bonus.md.
