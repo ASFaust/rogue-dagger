@@ -732,8 +732,16 @@ LCBench). Averaging over 8 random orders made LCBench *worse* (0.0224 vs 0.0140)
 active in only (10−k)/10 of training tasks, and the model never had to be order-invariant. In the benchmarks' column
 order the most important hp happens to sit in a low slot: PD1's learning rate in slot 0 (most important on all 28
 tasks; PD1 is where we beat FT-PFN), LCBench's learning rate in slot 1 (most important on 21/35). Direct test on
-LCBench (seed 0): learning rate in slot 0: 0.0152; in slot 6: **0.0272**; original order 0.0140. Every result so far
-depended on the benchmarks' column order. The user called it an implementation error: slots should be randomised.
+LCBench (seed 0; hps 0 batch_size, 1 learning_rate, 2 max_dropout, 3 max_units, 4 momentum, 5 num_layers,
+6 weight_decay):
+
+| order (slot k gets hp) | original | lr ↔ slot 0 | lr → slot 6 | reversed | by importance (lr, layers, bs, ...) | least important first | random (2) |
+|---|---|---|---|---|---|---|---|
+| LCBench regret | **0.0140** | 0.0152 | 0.0272 | 0.0247 | 0.0206 | 0.0231 | 0.0247, 0.0243 |
+
+The learning rate in a high slot hurts most, but "important hps in low slots" is too simple (sorting by importance is
+worse than the original). The slot dependence is idiosyncratic, and the original column order is a lucky one: every
+result so far depended on it. The user called it an implementation error: slots should be randomised.
 
 Fix: `env.random_slots` (training: per episode, the d hps go to a random subset of the d_max slots in random order,
 presence mask moves with them; implemented in `features.encode` via `Observation.slot_perm`, test
