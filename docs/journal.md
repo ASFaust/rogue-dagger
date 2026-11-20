@@ -781,3 +781,28 @@ Full table τ 0.25, mean final regret; `f03 random order` = old focus03 seeds un
   (runs/logs/slot_tta2.sh).
 - Exploration: on LCBench the slots models start fewer runs than focus03 s1/s2 (163–212 vs 263–309) and selection
   error stays ~0.010: random slots do not fix the LCBench exploration gap.
+
+## 2026-11-20: All models trained before 2026-11-20 have a slot bias
+
+Name: **slot bias** (earlier entries say "slot bug"; same thing). Every scorer trained before `random_slots`
+(everything up to and including `wide-focus03`, `wide`, big-shop, noise, Thurstone, the RL models) depends on which
+token slot a hyperparameter sits in, although the ifBO prior gives slot position no meaning.
+
+Why the prior has no slot meaning: config values are iid U(0,1) per dimension (`env.py`) and the BNN's first-layer
+weights are iid per input dimension (`prior.py` `W0`). Which dimension matters most in a task is uniformly random;
+there is no "learning rate" input. The scorer should be invariant to the order of the active dimensions.
+
+Why the models are not: the prior always put the d ~ U{1..10} active hps in slots 0..d−1. So (1) slot k was active
+in only (10−k)/10 of training tasks (slot 9 in 10 %): higher slots are under-trained; (2) slot position correlated with
+d. Marginally over d, a low slot's value predicts the curve better (with small d each dim matters more), but the model
+sees d through the presence mask, and within a task all active slots are exchangeable. Any slot asymmetry the models
+learned is an artifact of the layout, not knowledge. It is not a hint that important hps belong in low slots: sorting
+LCBench hps by importance (lr in slot 0) gave 0.0206, worse than the original order (0.0140) and close to random
+(0.024).
+
+Consequence: every benchmark number of these models is measured at the benchmarks' column order, and that order
+happens to suit them. focus03 (3 seeds), original vs one random order per task: TaskSet 0.0556 vs 0.0652, PD1 0.0095
+vs 0.0111, LCBench 0.0124 vs 0.0192. Comparisons between these models at the same order stay internally valid
+(same bias), but their absolute standing against FT-PFN is optimistic, most of all on LCBench, and whatever
+won us PD1 is partly the lucky slot of PD1's learning rate (slot 0). Fair comparisons from now on: models with
+random slots, or old models averaged over random orders.
